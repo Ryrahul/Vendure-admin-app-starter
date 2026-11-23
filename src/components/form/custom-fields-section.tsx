@@ -91,7 +91,8 @@ export function CustomFieldsSection({
   );
 }
 
-function CustomFieldInput({
+/** A single custom field input (for inline editors that render fields one by one). */
+export function CustomFieldInput({
   def,
   value,
   onChange,
