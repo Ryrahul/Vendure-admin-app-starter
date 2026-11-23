@@ -1,11 +1,16 @@
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
+import { CreateDraftOrderDocument } from '@/api/documents/draft-orders';
 import { OrderListDocument } from '@/api/documents/orders';
-import { useVendureInfiniteList } from '@/api/hooks';
+import { useVendureInfiniteList, useVendureMutation } from '@/api/hooks';
+import { useInvalidate } from '@/api/mutations';
+import { usePermissions } from '@/api/permissions';
 import { useChannelInfo } from '@/api/use-channel-info';
 import { InlineError } from '@/components/inline-error';
 import { OrderRow } from '@/components/order-row';
+import { HeaderIconButton } from '@/components/screen-kit';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SearchField } from '@/components/search-field';
 import { groupedRowStyle } from '@/components/section';
@@ -14,6 +19,7 @@ import { PAGE_SIZE } from '@/constants';
 import type { OrderListQueryVariables } from '@/gql/graphql';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useTheme } from '@/theme';
+import { alertError } from '@/utils/confirm';
 
 /** Quick state filters. "Placed" hides carts and drafts, like the dashboard widgets do. */
 const FILTERS = [
@@ -23,6 +29,7 @@ const FILTERS = [
   { key: 'Shipped', label: 'Shipped' },
   { key: 'Delivered', label: 'Delivered' },
   { key: 'Cancelled', label: 'Cancelled' },
+  { key: 'Draft', label: 'Drafts' },
   { key: 'all', label: 'All' },
 ] as const;
 type FilterKey = (typeof FILTERS)[number]['key'];
@@ -41,7 +48,7 @@ function buildVariables(filter: FilterKey, term: string, skip: number, take: num
     options: {
       skip,
       take,
-      sort: filter === 'all' ? { updatedAt: 'DESC' } : { orderPlacedAt: 'DESC' },
+      sort: filter === 'all' || filter === 'Draft' ? { updatedAt: 'DESC' } : { orderPlacedAt: 'DESC' },
       filter: { ...stateFilter, ...search },
     },
   };
@@ -54,6 +61,19 @@ export function OrderListScreen() {
   const [filter, setFilter] = useState<FilterKey>('placed');
   const [search, setSearch] = useState('');
   const term = useDebouncedValue(search.trim());
+  const { can } = usePermissions();
+  const invalidate = useInvalidate();
+  const createDraft = useVendureMutation(CreateDraftOrderDocument);
+  const newDraft = async () => {
+    if (createDraft.isPending) return;
+    try {
+      const { createDraftOrder } = await createDraft.mutateAsync({});
+      await invalidate(OrderListDocument);
+      router.push(`/orders/draft/${createDraftOrder.id}`);
+    } catch (e) {
+      alertError(e, 'Could not create draft order');
+    }
+  };
 
   const list = useVendureInfiniteList(
     OrderListDocument,
@@ -100,6 +120,16 @@ export function OrderListScreen() {
   );
 
   return (
+    <>
+      {can('CreateOrder') ? (
+        <Stack.Screen
+          options={{
+            headerRight: () => (
+              <HeaderIconButton label="New draft order" ios="square.and.pencil" android="edit_square" onPress={() => void newDraft()} />
+            ),
+          }}
+        />
+      ) : null}
     <FlatList
       contentInsetAdjustmentBehavior="automatic"
       keyboardDismissMode="on-drag"
@@ -141,5 +171,6 @@ export function OrderListScreen() {
         list.isFetchingNextPage ? <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} /> : undefined
       }
     />
+    </>
   );
 }

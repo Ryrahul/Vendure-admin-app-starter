@@ -1,6 +1,5 @@
-import { EmptyState } from '@/components/screen-state';
+import { CustomerListScreen } from '@/screens/customers/list';
 
-// Placeholder until P2 lands (customers list).
 export default function CustomersRoute() {
-  return <EmptyState title="Customers" message="Coming in v2 P2." />;
+  return <CustomerListScreen />;
 }

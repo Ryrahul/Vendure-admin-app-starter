@@ -7,7 +7,7 @@ import { AdministratorDetailDocument, AdministratorListDocument } from '../src/a
 import { ApiKeyDetailDocument, ApiKeyListDocument } from '../src/api/documents/api-keys';
 import { AssetDetailDocument, AssetListDocument, AssetTagsDocument } from '../src/api/documents/assets';
 import { ChannelDetailDocument, ChannelListDocument } from '../src/api/documents/channels';
-import { CollectionContentsDocument, CollectionDetailDocument, CollectionFiltersDocument, CollectionListDocument } from '../src/api/documents/collections';
+import { CollectionDetailDocument, CollectionFiltersDocument, CollectionListDocument } from '../src/api/documents/collections';
 import { CountryDetailDocument, CountryListDocument } from '../src/api/documents/countries';
 import { FacetDetailDocument, FacetListDocument } from '../src/api/documents/facets';
 import { GlobalSettingsDetailDocument } from '../src/api/documents/global-settings';
@@ -36,6 +36,8 @@ export interface Area {
   /** Picks `{ items, totalItems }` from the list result. */
   pick?: (r: any) => { items: { id: string }[]; totalItems: number };
   detail?: AnyDoc;
+  /** More queries for the first item, e.g. its history or orders. */
+  related?: { doc: AnyDoc; vars: (id: string) => unknown }[];
   /** Single queries without variables (config / settings screens). */
   singles?: AnyDoc[];
 }
@@ -78,6 +80,10 @@ export async function readCoverage({ run, ok }: SmokeContext) {
         if (item && area.detail) {
           await run(area.detail as any, { id: item.id });
           parts.push(`detail #${item.id}`);
+        }
+        if (item && area.related?.length) {
+          for (const r of area.related) await run(r.doc as any, r.vars(item.id) as any);
+          parts.push(`${area.related.length} related`);
         }
       }
       for (const single of area.singles ?? []) await run(single as any);

@@ -13,14 +13,17 @@ import { ProductDetailDocument, ProductListDocument, UpdateProductDocument } fro
 import { readCoverage } from './read-coverage';
 import { connect } from './smoke-lib';
 
-const env = (k: string) => {
-  const v = process.env[k];
-  if (!v) throw new Error(`Missing env ${k}`);
-  return v;
+const required = (value: string | undefined, name: string) => {
+  if (!value) throw new Error(`Missing env ${name}`);
+  return value;
 };
 
 async function main() {
-  const ctx = await connect(env('VENDURE_API'), env('VENDURE_USER'), env('VENDURE_PASS'));
+  const ctx = await connect(
+    required(process.env.VENDURE_API, 'VENDURE_API'),
+    required(process.env.VENDURE_USER, 'VENDURE_USER'),
+    required(process.env.VENDURE_PASS, 'VENDURE_PASS'),
+  );
   const { run, ok, state, customFields } = ctx;
   ok('login', `bearer token received; channel token ${state.channelToken ? 'set' : 'none'}`);
   ok('server config', `${customFields.size} entit${customFields.size === 1 ? 'y' : 'ies'} with custom fields`);

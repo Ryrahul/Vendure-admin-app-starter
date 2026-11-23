@@ -2,11 +2,10 @@
  * Shared helpers for the smoke tests: a session-bound `run()` that expands `@customFields`
  * exactly like the app does, plus a guard that keeps write tests on a local server.
  */
-import { LoginDocument } from '../src/api/documents/auth';
+import { CurrentUserDocument, LoginDocument } from '../src/api/documents/auth';
 import { ServerConfigDocument } from '../src/api/documents/server-config';
 import { normalizeApiUrl, request, type ClientState } from '../src/api/client';
 import { buildCustomFieldsMap, expandCustomFields, type CustomFieldsMap } from '../src/api/custom-fields';
-import { CurrentUserDocument } from '../src/api/documents/auth';
 import type { TypedDocumentString } from '../src/gql/graphql';
 
 export interface SmokeContext {
