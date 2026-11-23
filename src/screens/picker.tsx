@@ -29,7 +29,13 @@ function PickerBody({ id, request }: { id: string; request: PickerRequest }) {
   const [search, setSearch] = useState('');
   const term = useDebouncedValue(search.trim());
   const [selected, setSelected] = useState<Map<string, PickerItem>>(
-    () => new Map((request.selected ?? []).map((sid) => [sid, { id: sid, title: sid }])),
+    () =>
+      new Map(
+        (request.selected ?? []).map((sid) => [
+          sid,
+          request.selectedItems?.find((i) => i.id === sid) ?? { id: sid, title: `#${sid}` },
+        ]),
+      ),
   );
 
   const remote = useRemoteItems(request.source, term, id);

@@ -30,6 +30,8 @@ export interface PickerRequest {
   multiple?: boolean;
   /** Ids selected when the picker opens (multi-select). */
   selected?: string[];
+  /** Labels for the pre-selected ids, so items not on the loaded page keep their titles. */
+  selectedItems?: PickerItem[];
   source?: PickerSource;
   options?: PickerItem[];
   searchPlaceholder?: string;
