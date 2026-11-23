@@ -7,9 +7,10 @@
  * Credentials come only from the environment — never commit them.
  */
 import { ActiveChannelDocument } from '../src/api/documents/auth';
-import { DashboardMetricsDocument, DashboardOrdersDocument } from '../src/api/documents/dashboard';
+import { DashboardMetricsDocument, DashboardOrdersDocument, DashboardOrderTotalsDocument } from '../src/api/documents/dashboard';
 import { OrderDetailDocument, OrderListDocument } from '../src/api/documents/orders';
 import { ProductDetailDocument, ProductListDocument, UpdateProductDocument } from '../src/api/documents/products';
+import { readCoverage } from './read-coverage';
 import { connect } from './smoke-lib';
 
 const env = (k: string) => {
@@ -19,15 +20,24 @@ const env = (k: string) => {
 };
 
 async function main() {
-  const { run, ok, state, customFields } = await connect(env('VENDURE_API'), env('VENDURE_USER'), env('VENDURE_PASS'));
+  const ctx = await connect(env('VENDURE_API'), env('VENDURE_USER'), env('VENDURE_PASS'));
+  const { run, ok, state, customFields } = ctx;
   ok('login', `bearer token received; channel token ${state.channelToken ? 'set' : 'none'}`);
   ok('server config', `${customFields.size} entit${customFields.size === 1 ? 'y' : 'ies'} with custom fields`);
 
   const ch = await run(ActiveChannelDocument);
   ok('activeChannel', `${ch.activeChannel.defaultCurrencyCode}, precision ${ch.globalSettings.serverConfig.moneyStrategyPrecision}`);
 
-  const metrics = await run(DashboardMetricsDocument);
-  ok('metricSummary', metrics.metricSummary.map((m) => `${m.type}:${m.entries.length}d`).join(' '));
+  try {
+    const metrics = await run(DashboardMetricsDocument);
+    ok('metricSummary', metrics.metricSummary.map((m) => `${m.type}:${m.entries.length}d`).join(' '));
+  } catch (e) {
+    if (!/Cannot query field "metricSummary"/.test((e as Error).message)) throw e;
+    // No AdminUiPlugin: the app computes the 30-day metrics from core `orders`.
+    const since = new Date(Date.now() - 29 * 86_400_000).toISOString();
+    const totals = await run(DashboardOrderTotalsDocument, { since, take: 1000 });
+    ok('metrics (fallback)', `no metricSummary; ${totals.orders.totalItems} placed orders in 30 days via core orders`);
+  }
 
   const now = new Date();
   const dash = await run(DashboardOrdersDocument, {
@@ -72,7 +82,8 @@ async function main() {
     const od = await run(OrderDetailDocument, { id: o.id });
     ok('order detail', `${od.order?.code} ${od.order?.lines.length} line(s), ${od.order?.payments?.length ?? 0} payment(s)`);
   }
-  console.log('\nAll smoke checks passed.');
+  const coverage = await readCoverage(ctx);
+  console.log(`\nAll smoke checks passed (${coverage.areas} admin areas read${coverage.skipped ? `, ${coverage.skipped} skipped for permissions` : ''}).`);
 }
 
 main().catch((e) => {
