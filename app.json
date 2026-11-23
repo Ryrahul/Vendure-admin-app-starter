@@ -48,6 +48,14 @@
         {
           "ndkVersion": "28.2.13676358"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos to upload as product and collection images.",
+          "cameraPermission": "Take photos to upload as product images.",
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

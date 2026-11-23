@@ -39,8 +39,8 @@ import { alertError, confirm } from '@/utils/confirm';
 
 export interface EntityListScreenProps<R, V, Item extends { id: string }> {
   document: TypedDocumentString<R, V>;
-  variables: (term: string, skip: number, take: number) => V;
-  select: (result: R) => { items: Item[]; totalItems: number };
+  variables: (term: string, skip: number, take: number) => NoInfer<V>;
+  select: (result: NoInfer<R>) => { items: Item[]; totalItems: number };
   row: (item: Item) => ListRowProps;
   /** Singular / plural nouns for counts and empty states. */
   noun: [string, string];

@@ -21,8 +21,8 @@ export interface PickerItem {
 
 export interface PickerSource<R = any, V = any> {
   document: TypedDocumentString<R, V>;
-  variables: (term: string, skip: number, take: number) => V;
-  select: (result: R) => { items: PickerItem[]; totalItems: number };
+  variables: (term: string, skip: number, take: number) => NoInfer<V>;
+  select: (result: NoInfer<R>) => { items: PickerItem[]; totalItems: number };
 }
 
 export interface PickerRequest {

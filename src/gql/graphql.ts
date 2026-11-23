@@ -98,6 +98,12 @@ export type CollectionSortParameter = {
   updatedAt?: SortOrder | null | undefined;
 };
 
+export type CreateTaxCategoryInput = {
+  customFields?: unknown;
+  isDefault?: boolean | null | undefined;
+  name: string;
+};
+
 /**
  * @description
  * ISO 4217 currency code
@@ -500,6 +506,12 @@ export type DateRange = {
   end: string;
   start: string;
 };
+
+export type DeletionResult =
+  /** The entity was successfully deleted */
+  | 'DELETED'
+  /** Deletion did not take place, reason given in message */
+  | 'NOT_DELETED';
 
 export type ErrorCode =
   | 'ALREADY_REFUNDED_ERROR'
@@ -1384,6 +1396,36 @@ export type StringOperators = {
   regex?: string | null | undefined;
 };
 
+export type TaxCategoryFilterParameter = {
+  _and?: Array<TaxCategoryFilterParameter> | null | undefined;
+  _or?: Array<TaxCategoryFilterParameter> | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  isDefault?: BooleanOperators | null | undefined;
+  name?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+};
+
+export type TaxCategoryListOptions = {
+  /** Allows the results to be filtered */
+  filter?: TaxCategoryFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: TaxCategorySortParameter | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+};
+
+export type TaxCategorySortParameter = {
+  createdAt?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  name?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
+};
+
 export type UpdateProductInput = {
   assetIds?: Array<string> | null | undefined;
   customFields?: unknown;
@@ -1392,6 +1434,13 @@ export type UpdateProductInput = {
   featuredAssetId?: string | null | undefined;
   id: string;
   translations?: Array<ProductTranslationInput> | null | undefined;
+};
+
+export type UpdateTaxCategoryInput = {
+  customFields?: unknown;
+  id: string;
+  isDefault?: boolean | null | undefined;
+  name?: string | null | undefined;
 };
 
 export type LoginMutationVariables = Exact<{
@@ -1494,6 +1543,41 @@ export type ServerConfigQuery = { globalSettings: { id: string, availableLanguag
             > }
           | { __typename: 'TextCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
         > }> } } };
+
+export type TaxCategoryListQueryVariables = Exact<{
+  options?: TaxCategoryListOptions | null | undefined;
+}>;
+
+
+export type TaxCategoryListQuery = { taxCategories: { totalItems: number, items: Array<{ id: string, name: string, isDefault: boolean }> } };
+
+export type TaxCategoryDetailQueryVariables = Exact<{
+  id: string;
+}>;
+
+
+export type TaxCategoryDetailQuery = { taxCategory: { id: string, createdAt: string, updatedAt: string, name: string, isDefault: boolean, customFields: unknown } | null };
+
+export type CreateTaxCategoryMutationVariables = Exact<{
+  input: CreateTaxCategoryInput;
+}>;
+
+
+export type CreateTaxCategoryMutation = { createTaxCategory: { id: string } };
+
+export type UpdateTaxCategoryMutationVariables = Exact<{
+  input: UpdateTaxCategoryInput;
+}>;
+
+
+export type UpdateTaxCategoryMutation = { updateTaxCategory: { id: string } };
+
+export type DeleteTaxCategoryMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type DeleteTaxCategoryMutation = { deleteTaxCategory: { result: DeletionResult, message: string | null } };
 
 export type PickProductsQueryVariables = Exact<{
   options?: ProductListOptions | null | undefined;
@@ -2010,6 +2094,52 @@ export const ServerConfigDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<ServerConfigQuery, ServerConfigQueryVariables>;
+export const TaxCategoryListDocument = new TypedDocumentString(`
+    query TaxCategoryList($options: TaxCategoryListOptions) {
+  taxCategories(options: $options) {
+    items {
+      id
+      name
+      isDefault
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<TaxCategoryListQuery, TaxCategoryListQueryVariables>;
+export const TaxCategoryDetailDocument = new TypedDocumentString(`
+    query TaxCategoryDetail($id: ID!) {
+  taxCategory(id: $id) {
+    id
+    createdAt
+    updatedAt
+    name
+    isDefault
+    customFields @customFields(entity: "TaxCategory")
+  }
+}
+    `) as unknown as TypedDocumentString<TaxCategoryDetailQuery, TaxCategoryDetailQueryVariables>;
+export const CreateTaxCategoryDocument = new TypedDocumentString(`
+    mutation CreateTaxCategory($input: CreateTaxCategoryInput!) {
+  createTaxCategory(input: $input) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<CreateTaxCategoryMutation, CreateTaxCategoryMutationVariables>;
+export const UpdateTaxCategoryDocument = new TypedDocumentString(`
+    mutation UpdateTaxCategory($input: UpdateTaxCategoryInput!) {
+  updateTaxCategory(input: $input) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<UpdateTaxCategoryMutation, UpdateTaxCategoryMutationVariables>;
+export const DeleteTaxCategoryDocument = new TypedDocumentString(`
+    mutation DeleteTaxCategory($id: ID!) {
+  deleteTaxCategory(id: $id) {
+    result
+    message
+  }
+}
+    `) as unknown as TypedDocumentString<DeleteTaxCategoryMutation, DeleteTaxCategoryMutationVariables>;
 export const PickProductsDocument = new TypedDocumentString(`
     query PickProducts($options: ProductListOptions) {
   products(options: $options) {
