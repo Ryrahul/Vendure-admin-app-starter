@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 
-import { DashboardMetricsDocument, DashboardOrdersDocument } from '@/api/documents/dashboard';
+import { DashboardOrdersDocument } from '@/api/documents/dashboard';
 import { useVendureQuery } from '@/api/hooks';
 import { useChannelInfo } from '@/api/use-channel-info';
 import { Button } from '@/components/button';
@@ -15,6 +15,7 @@ import { formatMoneyCompact } from '@/utils/format';
 
 import { BarChart } from './bar-chart';
 import { MetricTile } from './metric-tile';
+import { useDashboardMetrics } from './use-metrics';
 
 function periodStarts() {
   const now = new Date();
@@ -28,15 +29,14 @@ export function DashboardScreen() {
   const [periods] = useState(periodStarts);
   const [chartType, setChartType] = useState<'OrderCount' | 'OrderTotal'>('OrderTotal');
   const channel = useChannelInfo();
-  const metrics = useVendureQuery(DashboardMetricsDocument);
+  const metrics = useDashboardMetrics();
   const orders = useVendureQuery(DashboardOrdersDocument, periods);
 
   const summary = useMemo(() => {
-    const byType = (t: string) => metrics.data?.metricSummary.find((m) => m.type === t)?.entries ?? [];
-    const count = byType('OrderCount').reduce((s, e) => s + e.value, 0);
-    const total = byType('OrderTotal').reduce((s, e) => s + e.value, 0);
-    return { count, total, aov: count ? total / count : 0, series: byType(chartType) };
-  }, [metrics.data, chartType]);
+    const count = (metrics.series?.OrderCount ?? []).reduce((s, e) => s + e.value, 0);
+    const total = (metrics.series?.OrderTotal ?? []).reduce((s, e) => s + e.value, 0);
+    return { count, total, aov: count ? total / count : 0, series: metrics.series?.[chartType] ?? [] };
+  }, [metrics.series, chartType]);
 
   const money = (v: number) => formatMoneyCompact(v, channel.currencyCode, channel.precision);
   const refreshing = (metrics.isRefetching || orders.isRefetching) && !metrics.isLoading;
@@ -47,7 +47,7 @@ export function DashboardScreen() {
   };
 
   if (metrics.isLoading && orders.isLoading) return <LoadingState label="Loading insights…" />;
-  if (!metrics.data && !orders.data && (metrics.error || orders.error)) {
+  if (!metrics.series && !orders.data && (metrics.error || orders.error)) {
     return <ErrorState error={metrics.error ?? orders.error} onRetry={onRefresh} />;
   }
 
@@ -65,8 +65,9 @@ export function DashboardScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] }}>
         <MetricTile label="Orders today" value={String(orders.data?.today.totalItems ?? '—')} />
         <MetricTile label="Orders this month" value={String(orders.data?.month.totalItems ?? '—')} />
-        <MetricTile label="Revenue · 30 days" value={metrics.data ? money(summary.total) : '—'} hint={`${summary.count} orders`} />
-        <MetricTile label="Avg. order value" value={metrics.data ? money(summary.aov) : '—'} hint="Last 30 days" />
+        <MetricTile label="Revenue · 30 days" value={metrics.series ? money(summary.total) : '—'}
+          hint={`${summary.count}${metrics.approximate ? '+' : ''} orders`} />
+        <MetricTile label="Avg. order value" value={metrics.series ? money(summary.aov) : '—'} hint="Last 30 days" />
       </View>
 
       {summary.series.length ? (

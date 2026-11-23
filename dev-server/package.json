@@ -1,0 +1,23 @@
+{
+  "name": "vendure-admin-app-starter-dev-server",
+  "private": true,
+  "description": "Local seeded Vendure server for developing and testing the mobile app (incl. destructive flows).",
+  "scripts": {
+    "populate": "tsx --env-file=.env src/populate.ts",
+    "start": "npm run start:server & npm run start:worker & wait",
+    "typecheck": "tsc --noEmit",
+    "start:server": "tsx --env-file=.env src/index.ts",
+    "start:worker": "tsx --env-file=.env src/index-worker.ts",
+    "seed:orders": "tsx --env-file=.env src/seed-orders.ts"
+  },
+  "dependencies": {
+    "@vendure/asset-server-plugin": "3.8.2",
+    "@vendure/core": "3.8.2",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@vendure/create": "3.8.2",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.0"
+  }
+}

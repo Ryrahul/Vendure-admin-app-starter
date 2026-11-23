@@ -6,82 +6,87 @@
  *
  * Credentials come only from the environment — never commit them.
  */
-import { ActiveChannelDocument, CurrentUserDocument, LoginDocument } from '../src/api/documents/auth';
-import { DashboardMetricsDocument, DashboardOrdersDocument } from '../src/api/documents/dashboard';
+import { ActiveChannelDocument } from '../src/api/documents/auth';
+import { DashboardMetricsDocument, DashboardOrdersDocument, DashboardOrderTotalsDocument } from '../src/api/documents/dashboard';
 import { OrderDetailDocument, OrderListDocument } from '../src/api/documents/orders';
 import { ProductDetailDocument, ProductListDocument, UpdateProductDocument } from '../src/api/documents/products';
-import { normalizeApiUrl, request, type ClientState } from '../src/api/client';
+import { readCoverage } from './read-coverage';
+import { connect } from './smoke-lib';
 
-const env = (k: string) => {
-  const v = process.env[k];
-  if (!v) throw new Error(`Missing env ${k}`);
-  return v;
+const required = (value: string | undefined, name: string) => {
+  if (!value) throw new Error(`Missing env ${name}`);
+  return value;
 };
 
 async function main() {
-  const state: ClientState = { apiUrl: normalizeApiUrl(env('VENDURE_API')) };
-  const ok = (label: string, detail: string) => console.log(`✔ ${label.padEnd(18)} ${detail}`);
+  const ctx = await connect(
+    required(process.env.VENDURE_API, 'VENDURE_API'),
+    required(process.env.VENDURE_USER, 'VENDURE_USER'),
+    required(process.env.VENDURE_PASS, 'VENDURE_PASS'),
+  );
+  const { run, ok, state, customFields } = ctx;
+  ok('login', `bearer token received; channel token ${state.channelToken ? 'set' : 'none'}`);
+  ok('server config', `${customFields.size} entit${customFields.size === 1 ? 'y' : 'ies'} with custom fields`);
 
-  const login = await request(state, LoginDocument, { username: env('VENDURE_USER'), password: env('VENDURE_PASS') });
-  if (login.data.login.__typename !== 'CurrentUser' || !login.authToken) throw new Error('login failed');
-  state.authToken = login.authToken;
-  ok('login', `bearer token received (${login.data.login.identifier})`);
+  const ch = await run(ActiveChannelDocument);
+  ok('activeChannel', `${ch.activeChannel.defaultCurrencyCode}, precision ${ch.globalSettings.serverConfig.moneyStrategyPrecision}`);
 
-  const me = await request(state, CurrentUserDocument);
-  const channels = me.data.me?.channels ?? [];
-  state.channelToken = (channels.find((c) => c.code === '__default_channel__') ?? channels[0])?.token;
-  ok('me', `${channels.length} channel(s), active ${channels.find((c) => c.token === state.channelToken)?.code}`);
-
-  const ch = await request(state, ActiveChannelDocument);
-  ok('activeChannel', `${ch.data.activeChannel.defaultCurrencyCode}, precision ${ch.data.globalSettings.serverConfig.moneyStrategyPrecision}`);
-
-  const metrics = await request(state, DashboardMetricsDocument);
-  ok('metricSummary', metrics.data.metricSummary.map((m) => `${m.type}:${m.entries.length}d`).join(' '));
+  try {
+    const metrics = await run(DashboardMetricsDocument);
+    ok('metricSummary', metrics.metricSummary.map((m) => `${m.type}:${m.entries.length}d`).join(' '));
+  } catch (e) {
+    if (!/Cannot query field "metricSummary"/.test((e as Error).message)) throw e;
+    // No AdminUiPlugin: the app computes the 30-day metrics from core `orders`.
+    const since = new Date(Date.now() - 29 * 86_400_000).toISOString();
+    const totals = await run(DashboardOrderTotalsDocument, { since, take: 1000 });
+    ok('metrics (fallback)', `no metricSummary; ${totals.orders.totalItems} placed orders in 30 days via core orders`);
+  }
 
   const now = new Date();
-  const dash = await request(state, DashboardOrdersDocument, {
+  const dash = await run(DashboardOrdersDocument, {
     today: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
     monthStart: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
   });
-  ok('dashboard orders', `today ${dash.data.today.totalItems}, month ${dash.data.month.totalItems}, latest ${dash.data.latest.items.length}`);
+  ok('dashboard orders', `today ${dash.today.totalItems}, month ${dash.month.totalItems}, latest ${dash.latest.items.length}`);
 
-  const products = await request(state, ProductListDocument, { options: { take: 5, sort: { updatedAt: 'DESC' } } });
-  const withImage = products.data.products.items.filter((p) => p.featuredAsset?.preview).length;
-  ok('products', `${products.data.products.totalItems} total, ${withImage}/5 with images`);
+  const products = await run(ProductListDocument, { options: { take: 5, sort: { updatedAt: 'DESC' } } });
+  const withImage = products.products.items.filter((p) => p.featuredAsset?.preview).length;
+  ok('products', `${products.products.totalItems} total, ${withImage}/5 with images`);
 
-  const term = products.data.products.items[0]?.name.split(' ')[0] ?? 'a';
-  const search = await request(state, ProductListDocument, {
+  const term = products.products.items[0]?.name.split(' ')[0] ?? 'a';
+  const search = await run(ProductListDocument, {
     options: { take: 5, filter: { _or: [{ name: { contains: term } }, { slug: { contains: term } }, { sku: { contains: term } }] } },
   });
-  ok('product search', `"${term}" → ${search.data.products.totalItems}`);
+  ok('product search', `"${term}" → ${search.products.totalItems}`);
 
-  const first = products.data.products.items[0];
+  const first = products.products.items[0];
   if (first) {
-    const detail = await request(state, ProductDetailDocument, { id: first.id });
-    const p = detail.data.product!;
+    const detail = await run(ProductDetailDocument, { id: first.id });
+    const p = detail.product!;
     ok('product detail', `#${p.id} ${p.variantList.totalItems} variant(s), ${p.translations.length} translation(s)`);
 
     if (process.env.SMOKE_MUTATION === '1') {
       const original = p.enabled;
-      const flipped = await request(state, UpdateProductDocument, { input: { id: p.id, enabled: !original } });
-      const restored = await request(state, UpdateProductDocument, { input: { id: p.id, enabled: original } });
-      if (flipped.data.updateProduct.enabled !== !original || restored.data.updateProduct.enabled !== original) {
+      const flipped = await run(UpdateProductDocument, { input: { id: p.id, enabled: !original } });
+      const restored = await run(UpdateProductDocument, { input: { id: p.id, enabled: original } });
+      if (flipped.updateProduct.enabled !== !original || restored.updateProduct.enabled !== original) {
         throw new Error('mutation round-trip mismatch');
       }
       ok('updateProduct', `#${p.id} enabled ${original} → ${!original} → ${original} (restored)`);
     }
   }
 
-  const orders = await request(state, OrderListDocument, {
+  const orders = await run(OrderListDocument, {
     options: { take: 5, sort: { orderPlacedAt: 'DESC' }, filter: { active: { eq: false }, state: { notIn: ['Draft'] } } },
   });
-  ok('orders', `${orders.data.orders.totalItems} placed, states: ${[...new Set(orders.data.orders.items.map((o) => o.state))].join(', ')}`);
-  const o = orders.data.orders.items[0];
+  ok('orders', `${orders.orders.totalItems} placed, states: ${[...new Set(orders.orders.items.map((o) => o.state))].join(', ')}`);
+  const o = orders.orders.items[0];
   if (o) {
-    const od = await request(state, OrderDetailDocument, { id: o.id });
-    ok('order detail', `${od.data.order?.code} ${od.data.order?.lines.length} line(s), ${od.data.order?.payments?.length ?? 0} payment(s)`);
+    const od = await run(OrderDetailDocument, { id: o.id });
+    ok('order detail', `${od.order?.code} ${od.order?.lines.length} line(s), ${od.order?.payments?.length ?? 0} payment(s)`);
   }
-  console.log('\nAll smoke checks passed.');
+  const coverage = await readCoverage(ctx);
+  console.log(`\nAll smoke checks passed (${coverage.areas} admin areas read${coverage.skipped ? `, ${coverage.skipped} skipped for permissions` : ''}).`);
 }
 
 main().catch((e) => {

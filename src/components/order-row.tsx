@@ -13,7 +13,7 @@ export function OrderRow({ order, precision = 2 }: { order: OrderListItemFragmen
       subtitle={formatRelative(order.orderPlacedAt ?? order.updatedAt)}
       value={formatMoney(order.totalWithTax, order.currencyCode, precision)}
       trailing={<StatusBadge state={order.state} />}
-      onPress={() => router.push(`/orders/${order.id}`)}
+      onPress={() => router.push(order.state === 'Draft' ? `/orders/draft/${order.id}` : `/orders/${order.id}`)}
     />
   );
 }

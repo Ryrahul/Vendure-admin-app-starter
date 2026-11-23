@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
 
@@ -10,11 +11,13 @@ import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { ListRow } from '@/components/list-row';
 import { Section } from '@/components/section';
+import { HubSections, MORE_HUB } from '@/screens/hubs';
 import { useTheme } from '@/theme';
 
 const DEFAULT_CHANNEL = '__default_channel__';
 const COLLAPSED_CHANNELS = 5;
 
+/** More tab: account, every Marketing/Settings/System area, server + channel, sign out. */
 export function SettingsScreen() {
   const { spacing, dark } = useTheme();
   const { state, logout, setChannel } = useSession();
@@ -39,8 +42,11 @@ export function SettingsScreen() {
           leading={<Icon ios="person.crop.circle" android="account_circle" size={28} />}
           title={admin ? `${admin.firstName} ${admin.lastName}`.trim() || state.identifier || 'Administrator' : state.identifier ?? '…'}
           subtitle={admin?.emailAddress ?? state.identifier}
+          onPress={() => router.push('/more/profile')}
         />
       </Section>
+
+      <HubSections groups={MORE_HUB} />
 
       <Section title="Server" footer="To use another Vendure server, sign out and enter its Admin API URL.">
         <ListRow title="Admin API" subtitle={state.apiUrl} />

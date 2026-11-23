@@ -19,6 +19,8 @@ import {
 } from 'react';
 
 import { CurrentUserDocument, LoginDocument, LogoutDocument } from '@/api/documents/auth';
+import { ServerConfigDocument } from '@/api/documents/server-config';
+import { buildCustomFieldsMap, expandCustomFields, type CustomFieldsMap } from '@/api/custom-fields';
 import { normalizeApiUrl, request, VendureApiError, type ClientState } from '@/api/client';
 import { DEFAULT_SERVER_URL } from '@/constants';
 import type { TypedDocumentString } from '@/gql/graphql';
@@ -36,10 +38,21 @@ export interface SessionChannel {
   permissions: string[];
 }
 
+export interface ServerConfig {
+  customFields: CustomFieldsMap;
+  permissions: { name: string; description: string; assignable: boolean }[];
+  orderProcess: { name: string; to: string[] }[];
+  availableLanguages: string[];
+  permittedAssetTypes: string[];
+  moneyStrategyPrecision: number;
+}
+
 interface SessionState extends ClientState {
   hydrated: boolean;
   channels: SessionChannel[];
   identifier?: string;
+  /** Loaded with the user; undefined if the admin may not read global settings. */
+  serverConfig?: ServerConfig;
 }
 
 interface SessionContextValue {
@@ -57,6 +70,28 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 async function save(key: string, value: string | null | undefined) {
   if (value) await SecureStore.setItemAsync(key, value);
   else await SecureStore.deleteItemAsync(key);
+}
+
+async function loadServerConfig(base: ClientState): Promise<ServerConfig | undefined> {
+  try {
+    const { data } = await request(base, ServerConfigDocument);
+    const { availableLanguages, serverConfig } = data.globalSettings;
+    return {
+      customFields: buildCustomFieldsMap(serverConfig.entityCustomFields),
+      permissions: serverConfig.permissions,
+      orderProcess: serverConfig.orderProcess,
+      availableLanguages,
+      permittedAssetTypes: serverConfig.permittedAssetTypes,
+      moneyStrategyPrecision: serverConfig.moneyStrategyPrecision,
+    };
+  } catch (e) {
+    // Network failures surface (and are retried later); a permissions error just means no config.
+    if (e instanceof VendureApiError && e.code === 'NETWORK_ERROR') throw e;
+    if (!(e instanceof VendureApiError && e.isAuthError)) {
+      console.warn(`Could not load the server config; custom fields are hidden: ${(e as Error).message}`);
+    }
+    return undefined;
+  }
 }
 
 /** The default channel is the one whose code is Vendure's `__default_channel__`. */
@@ -79,6 +114,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Every write goes through update(), so the ref is the source of truth.
   const stateRef = useRef(state);
 
+  // Server config is retried lazily (first request) if it couldn't load at startup, e.g. offline.
+  const configLoad = useRef<Promise<void> | null>(null);
+  const configUnavailable = useRef(false);
+
   const update = useCallback((patch: Partial<SessionState>) => {
     const next = { ...stateRef.current, ...patch };
     stateRef.current = next;
@@ -87,7 +126,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const clearSession = useCallback(async () => {
     await Promise.all([save(KEYS.authToken, null), save(KEYS.channelToken, null)]);
-    update({ authToken: null, channelToken: null, channels: [], identifier: undefined });
+    update({ authToken: null, channelToken: null, channels: [], identifier: undefined, serverConfig: undefined });
     queryClient.clear();
   }, [queryClient, update]);
 
@@ -99,7 +138,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw new VendureApiError('This account has no access to any channel.', 'NO_CHANNELS');
       }
       const channel = pickChannel(channels, base.channelToken);
-      return { channels, channel, identifier: data.me?.identifier };
+      const serverConfig = await loadServerConfig({ ...base, channelToken: channel.token });
+      return { channels, channel, identifier: data.me?.identifier, serverConfig };
     },
     [],
   );
@@ -115,9 +155,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const base: ClientState = { apiUrl: apiUrl ?? DEFAULT_SERVER_URL, authToken, channelToken };
       if (authToken) {
         try {
-          const { channels, channel, identifier } = await loadUser(base);
+          const { channels, channel, identifier, serverConfig } = await loadUser(base);
           await save(KEYS.channelToken, channel.token);
-          update({ ...base, channelToken: channel.token, channels, identifier, hydrated: true });
+          update({ ...base, channelToken: channel.token, channels, identifier, serverConfig, hydrated: true });
           return;
         } catch (e) {
           // Expired session → back to login. Offline → keep the session and let screens retry.
@@ -150,14 +190,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         );
       }
       const base: ClientState = { apiUrl, authToken: res.authToken, channelToken: stateRef.current.channelToken };
-      const { channels, channel, identifier } = await loadUser(base);
+      const { channels, channel, identifier, serverConfig } = await loadUser(base);
       await Promise.all([
         save(KEYS.apiUrl, apiUrl),
         save(KEYS.authToken, res.authToken),
         save(KEYS.channelToken, channel.token),
       ]);
       queryClient.clear();
-      update({ apiUrl, authToken: res.authToken, channelToken: channel.token, channels, identifier });
+      configUnavailable.current = !serverConfig;
+      update({ apiUrl, authToken: res.authToken, channelToken: channel.token, channels, identifier, serverConfig });
     },
     [loadUser, queryClient, update],
   );
@@ -165,7 +206,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const execute = useCallback<SessionContextValue['execute']>(
     async (doc, variables, signal) => {
       try {
-        const res = await request(stateRef.current, doc, variables, signal);
+        const { serverConfig: loaded, authToken, channelToken } = stateRef.current;
+        if (!loaded && authToken && channelToken && !configUnavailable.current) {
+          configLoad.current ??= loadServerConfig(stateRef.current)
+            .then((serverConfig) => {
+              if (serverConfig) update({ serverConfig });
+              else configUnavailable.current = true; // no permission / unsupported: don't retry
+            })
+            .catch(() => {
+              // Still offline: try again on the next request.
+            })
+            .finally(() => {
+              configLoad.current = null;
+            });
+          await configLoad.current;
+        }
+        const current = stateRef.current;
+        const expanded = expandCustomFields(doc.toString(), current.serverConfig?.customFields);
+        const res = await request(current, { toString: () => expanded } as typeof doc, variables, signal);
         if (res.authToken && res.authToken !== stateRef.current.authToken) {
           await save(KEYS.authToken, res.authToken);
           update({ authToken: res.authToken });
@@ -211,6 +269,11 @@ export function useSession() {
   const ctx = useContext(SessionContext);
   if (!ctx) throw new Error('useSession must be used inside <SessionProvider>');
   return ctx;
+}
+
+/** Server config (custom fields, permission definitions, order process). */
+export function useServerConfig() {
+  return useSession().state.serverConfig;
 }
 
 /** Channel currently selected for API calls. */

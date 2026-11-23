@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vendure Admin",
     "slug": "vendure-admin-app-starter",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "vendureadmin",
@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "io.hyperce.vendureadmin"
+      "package": "io.hyperce.vendureadmin",
+      "versionCode": 2
     },
     "web": {
       "output": "single",
@@ -47,6 +48,14 @@
         "./plugins/with-android-ndk-version",
         {
           "ndkVersion": "28.2.13676358"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos to upload as product and collection images.",
+          "cameraPermission": "Take photos to upload as product images.",
+          "microphonePermission": false
         }
       ]
     ],
