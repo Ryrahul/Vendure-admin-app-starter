@@ -1,0 +1,10 @@
+# Client-only directives. They are validated by codegen and rewritten by the app before a
+# request is sent (src/api/custom-fields.ts); the server never sees them.
+
+"""
+Expands to the custom fields the connected server has configured for `entity`.
+On a `customFields` field: selects every (non-internal) custom field.
+On a `translations` field with `locale: true`: adds `customFields { … }` with the
+localeString / localeText fields to the translation selection.
+"""
+directive @customFields(entity: String!, locale: Boolean) on FIELD
