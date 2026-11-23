@@ -2,19 +2,30 @@
 
 _Last updated: 2026-11-23_
 
-## v2 (in progress): full admin parity, branch `feat/full-admin`
-- Scope: `V2-SCOPE.md`. Epic #11, with sub-issues #12–#18 (P0–P6) and #19 (dynamic custom fields).
-- Local test server: `dev-server/`, Vendure 3.8.2 on 127.0.0.1:3300.
-  - **Postgres db/role `vendure_starter`**: creds in `~/.config/vendure-app-starter/postgres.env` (chmod 600). Please include it in backups.
-  - Runs in tmux window `vendure:dev-server`.
-- Done:
-  - P0 foundations.
-  - Runtime custom-field expansion, verified on dev-server and read-only on Sastodeal (15 entities with custom fields).
-  - Tax categories reference area.
-  - `npm run smoke:dev` write harness (localhost-only guard).
-- Running: catalog, sales, settings A/B, marketing and system areas (parallel agents).
+## State: v2.0.0 shipped to testers. PR #20 is open, stacked on #10, and not merged.
+- Scope: `V2-SCOPE.md`. Epic #11 with sub-issues #12–#19.
+- **What's done:**
+  - Every web-dashboard area is in the app: catalog, sales (orders: full actions + drafts; customers, groups), promotions, all settings areas, job queue, scheduled tasks, reindex.
+  - Dynamic custom fields (#19): the `@customFields` directive is expanded at runtime from `serverConfig.entityCustomFields`, with inputs per type and save support.
+  - Insights works without AdminUiPlugin: it falls back to computing the figures from core `orders`.
+- **Local test server:** `dev-server/`, Vendure 3.8.2 on 127.0.0.1:3300, running in tmux window `vendure:dev-server`.
+  - **Postgres db/role `vendure_starter`.** Creds are in `~/.config/vendure-app-starter/postgres.env` (chmod 600). Include it in backups.
+  - The superadmin creds are in `~/.config/vendure-app-starter/dev-server-admin-creds`.
+- **Verification:**
+  - tsc, eslint and unit tests are clean. expo-doctor passes 20/20.
+  - `smoke:dev` passes all 27 write suites (localhost-only guard).
+  - `smoke` (read-only) covers 23 areas and passes on both dev-server and Sastodeal. No mutations were sent to Sastodeal.
+  - An independent review found 20 bugs, all fixed (ad6be02).
+  - **The UI has not been exercised on a device**: there's no emulator on the VM.
+- **APK:** `dist/vendure-admin-starter-2.0.0.apk`, 105,314,130 B, sha256 `c576ef4821c8df07179ec519783d320355e99d48db175398746f98b58083c8e1`.
+  - versionCode 2, 4 ABIs, debug keystore.
+  - The bundle has the default URL and no credentials.
+- **Firebase:** release 2.0.0 (2) distributed with `--groups testers`.
+- **v2 follow-ups:**
+  - Custom fields: relation editing only for known entities (Asset, Product, Variant, Customer, CustomerGroup, FacetValue, Collection); struct fields are read-only.
+  - Not done: multi-language translation editing, option-group based variant generation, drag-and-drop ordering, focal point.
 
-## State: v1.0.0 shipped to testers (PR open, not merged)
+## v1 record: 1.0.0 shipped to testers (PR #10)
 
 - [x] Lane setup: git + repo-local credential helper, relay live (gigs), expo plugin (project scope), vendure-docs MCP
 - [x] Expo SDK 58 scaffold (create-expo-app), Expo Router, NativeTabs
