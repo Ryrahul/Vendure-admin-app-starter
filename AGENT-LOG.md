@@ -22,3 +22,4 @@
 [2026-11-23 23:05] all 4 area agents done (catalog/sales/settings A/settings B+promos+system); 27 dev write suites + read coverage 23 areas (dev + Sastodeal read-only) pass; metricSummary is AdminUiPlugin-only -> core orders fallback
 [2026-11-23 23:10] independent review: 20 findings, fixed by 2 fix agents + orchestrator (ad6be02); pushed feat/full-admin; PR #20 (base feat/starter-app)
 [2026-11-23 23:25] APK 2.0.0 (2) 105314130B sha256 c576ef4821c8df07179ec519783d320355e99d48db175398746f98b58083c8e1, no creds in bundle; Firebase release 2.0.0 (2) --groups testers
+[2026-11-24 01:12] v2 relay handoff rs_J3Z649Y840D8 (continues rs_YGJ16ZK3Q9KQ), linked PR #20
