@@ -41,20 +41,34 @@ export const ProductDetailDocument = graphql(`
       featuredAsset {
         id
         preview
+        name
       }
       assets {
         id
         preview
+        name
+      }
+      channels {
+        id
+        code
+      }
+      optionGroups {
+        id
+        code
+        name
       }
       customFields @customFields(entity: "Product")
       translations @customFields(entity: "Product", locale: true) {
         id
         languageCode
         name
+        slug
+        description
       }
       facetValues {
         id
         name
+        code
         facet {
           id
           name
@@ -70,6 +84,14 @@ export const ProductDetailDocument = graphql(`
           price
           priceWithTax
           currencyCode
+          featuredAsset {
+            id
+            preview
+          }
+          options {
+            id
+            name
+          }
           stockLevels {
             id
             stockOnHand
@@ -94,6 +116,40 @@ export const UpdateProductDocument = graphql(`
         languageCode
         name
       }
+    }
+  }
+`);
+
+export const CreateProductDocument = graphql(`
+  mutation CreateProduct($input: CreateProductInput!) {
+    createProduct(input: $input) {
+      id
+      name
+    }
+  }
+`);
+
+export const DeleteProductDocument = graphql(`
+  mutation DeleteProduct($id: ID!) {
+    deleteProduct(id: $id) {
+      result
+      message
+    }
+  }
+`);
+
+export const AssignProductsToChannelDocument = graphql(`
+  mutation AssignProductsToChannel($input: AssignProductsToChannelInput!) {
+    assignProductsToChannel(input: $input) {
+      id
+    }
+  }
+`);
+
+export const RemoveProductsFromChannelDocument = graphql(`
+  mutation RemoveProductsFromChannel($input: RemoveProductsFromChannelInput!) {
+    removeProductsFromChannel(input: $input) {
+      id
     }
   }
 `);

@@ -131,17 +131,18 @@ function ArgInput({
   }
 
   if (ui.component === 'combination-mode-form-input') {
+    // A boolean argument: true = all filters must match (AND), false = any (OR).
     return (
       <SelectRow
         label={name}
-        disabled={readOnly}
         hint={hint}
-        value={value || 'AND'}
+        disabled={readOnly}
+        value={value === 'false' ? 'false' : 'true'}
         options={[
-          { value: 'AND', label: 'All (AND)' },
-          { value: 'OR', label: 'Any (OR)' },
+          { value: 'true', label: 'All (AND)' },
+          { value: 'false', label: 'Any (OR)' },
         ]}
-        onChange={(v) => onChange(v ?? 'AND')}
+        onChange={(v) => onChange(v ?? 'true')}
       />
     );
   }
