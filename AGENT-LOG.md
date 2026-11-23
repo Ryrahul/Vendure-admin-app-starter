@@ -9,3 +9,5 @@
 [2026-11-23 19:50] resumed after restart (bypass perms); relay ack to Mac lv_EM1NV6SNAGPG; research done (tokens from vendurehq/design, dashboard brief); standard admin schema -> graphql/admin-schema.graphql
 [2026-11-23 19:54] restarted for relay 0.8.1 live wake hooks; continuing: theme/client/codegen/session/components/routes written (uncommitted), screens next
 [2026-11-23 19:56] relay live re-joined after restart; ack sent to lv_EM1NV6SNAGPG
+[2026-11-23 19:59] pushed feat/starter-app f17f35c: all screens; tsc+lint clean; live smoke OK (1030 products 5/5 images, 522 placed orders, metricSummary, updateProduct enabled round-trip on #52 restored)
+[2026-11-23 20:01] prebuild android (buildTools 36.0.0, NDK 28.2 via plugins/with-android-ndk-version); starting assembleRelease
