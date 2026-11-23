@@ -257,8 +257,16 @@ function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promoti
           definitions={conditionDefs}
           value={conditions}
           onChange={edit(setConditions)}
+          readOnly={!canEdit}
         />
-        <OperationListEditor title="Actions" addLabel="Add action" definitions={actionDefs} value={actions} onChange={edit(setActions)} />
+        <OperationListEditor
+          title="Actions"
+          addLabel="Add action"
+          definitions={actionDefs}
+          value={actions}
+          onChange={edit(setActions)}
+          readOnly={!canEdit}
+        />
         <CustomFieldsSection
           defs={defs}
           values={cf}

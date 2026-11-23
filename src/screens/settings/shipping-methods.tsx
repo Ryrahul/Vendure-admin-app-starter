@@ -210,8 +210,8 @@ function ShippingMethodForm({ method, refetch, refreshing }: { method?: Shipping
             }}
           />
         </Section>
-        <OperationEditor title="Eligibility checker" definitions={checkers} value={checker} onChange={edit(setChecker)} />
-        <OperationEditor title="Shipping calculator" definitions={calculators} value={calculator} onChange={edit(setCalculator)} />
+        <OperationEditor title="Eligibility checker" definitions={checkers} value={checker} onChange={edit(setChecker)} readOnly={!canEdit} />
+        <OperationEditor title="Shipping calculator" definitions={calculators} value={calculator} onChange={edit(setCalculator)} readOnly={!canEdit} />
         <CustomFieldsSection
           defs={defs}
           values={cf}

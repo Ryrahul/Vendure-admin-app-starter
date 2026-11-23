@@ -181,10 +181,10 @@ function PaymentMethodForm({ method, refetch, refreshing }: { method?: PaymentMe
           />
           <SwitchRow label="Enabled" value={enabled} disabled={!canEdit} onValueChange={edit(setEnabled)} />
         </Section>
-        <OperationEditor title="Payment handler" definitions={handlers} value={handler} onChange={edit(setHandler)} />
+        <OperationEditor title="Payment handler" definitions={handlers} value={handler} onChange={edit(setHandler)} readOnly={!canEdit} />
         {checker ? (
           <>
-            <OperationEditor title="Eligibility checker" definitions={checkers} value={checker} onChange={edit(setChecker)} />
+            <OperationEditor title="Eligibility checker" definitions={checkers} value={checker} onChange={edit(setChecker)} readOnly={!canEdit} />
             {canEdit ? <Button title="Remove eligibility checker" variant="ghost" onPress={() => edit(setChecker)(null)} /> : null}
           </>
         ) : checkers.length && canEdit ? (
