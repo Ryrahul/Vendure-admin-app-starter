@@ -6,9 +6,9 @@ the lane claims on the shared VM so the next session can see it.
 | Item | Value |
 |---|---|
 | Lane files | `~/projects/vendure-app-starter/`, `~/.config/vendure-app-starter/` |
-| tmux | `vendure` (only if a long-running process is needed) |
-| Ports | 3300–3399 on 127.0.0.1. Claimed: **3300** = Metro/`expo start` (dev only, optional) |
-| Postgres | none so far (optional scratch Vendure would use db/role `vendure_starter`) |
+| tmux | `vendure` (window 0 = this Claude session; window `dev-server` = `npm start` in `dev-server/`) |
+| Ports | 3300–3399 on 127.0.0.1. Claimed: **3300** = local Vendure `dev-server/` (Admin + Shop API), **3301** = Metro (optional) |
+| Postgres | db/role **`vendure_starter`** (created 2026-11-23, Rahul-approved; creds `~/.config/vendure-app-starter/postgres.env`, chmod 600) — local dev-server only; include in backups |
 | Redis | none |
 | Repo | https://github.com/Ryrahul/Vendure-admin-app-starter (token in `~/.config/vendure-app-starter/github-token`) |
 | Relay | gigs profile only; live id of the VM session is logged in AGENT-LOG.md |
