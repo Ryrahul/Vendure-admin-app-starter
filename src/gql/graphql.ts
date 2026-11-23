@@ -3051,7 +3051,7 @@ export type AssetDetailQueryVariables = Exact<{
 }>;
 
 
-export type AssetDetailQuery = { asset: { id: string, createdAt: string, updatedAt: string, name: string, type: AssetType, fileSize: number, mimeType: string, width: number, height: number, source: string, preview: string, customFields: unknown, focalPoint: { x: number, y: number } | null, tags: Array<{ id: string, value: string }> } | null };
+export type AssetDetailQuery = { asset: { id: string, createdAt: string, updatedAt: string, name: string, type: AssetType, fileSize: number, mimeType: string, width: number, height: number, source: string, preview: string, languageCode: LanguageCode, customFields: unknown, focalPoint: { x: number, y: number } | null, tags: Array<{ id: string, value: string }>, translations: Array<{ id: string, languageCode: LanguageCode, name: string }> } | null };
 
 export type AssetTagsQueryVariables = Exact<{
   options?: TagListOptions | null | undefined;
@@ -3625,7 +3625,7 @@ export type CreateFacetMutationVariables = Exact<{
 }>;
 
 
-export type CreateFacetMutation = { createFacet: { id: string } };
+export type CreateFacetMutation = { createFacet: { id: string, values: Array<{ id: string, code: string, translations: Array<{ id: string, languageCode: LanguageCode }> }> } };
 
 export type UpdateFacetMutationVariables = Exact<{
   input: UpdateFacetInput;
@@ -3647,7 +3647,7 @@ export type CreateFacetValuesMutationVariables = Exact<{
 }>;
 
 
-export type CreateFacetValuesMutation = { createFacetValues: Array<{ id: string }> };
+export type CreateFacetValuesMutation = { createFacetValues: Array<{ id: string, code: string, translations: Array<{ id: string, languageCode: LanguageCode }> }> };
 
 export type UpdateFacetValuesMutationVariables = Exact<{
   input: Array<UpdateFacetValueInput> | UpdateFacetValueInput;
@@ -3736,7 +3736,7 @@ export type CreateOptionGroupMutationVariables = Exact<{
 }>;
 
 
-export type CreateOptionGroupMutation = { createProductOptionGroup: { id: string } };
+export type CreateOptionGroupMutation = { createProductOptionGroup: { id: string, options: Array<{ id: string, code: string, translations: Array<{ id: string, languageCode: LanguageCode }> }> } };
 
 export type UpdateOptionGroupMutationVariables = Exact<{
   input: UpdateProductOptionGroupInput;
@@ -3758,7 +3758,7 @@ export type CreateProductOptionMutationVariables = Exact<{
 }>;
 
 
-export type CreateProductOptionMutation = { createProductOption: { id: string } };
+export type CreateProductOptionMutation = { createProductOption: { id: string, code: string, translations: Array<{ id: string, languageCode: LanguageCode }> } };
 
 export type UpdateProductOptionMutationVariables = Exact<{
   input: UpdateProductOptionInput;
@@ -4753,7 +4753,7 @@ export const ApiKeyDetailDocument = new TypedDocumentString(`
         description
       }
     }
-    translations {
+    translations @customFields(entity: "ApiKey", locale: true) {
       id
       languageCode
       name
@@ -4839,9 +4839,15 @@ export const AssetDetailDocument = new TypedDocumentString(`
       x
       y
     }
+    languageCode
     tags {
       id
       value
+    }
+    translations @customFields(entity: "Asset", locale: true) {
+      id
+      languageCode
+      name
     }
     customFields @customFields(entity: "Asset")
   }
@@ -5984,6 +5990,14 @@ export const CreateFacetDocument = new TypedDocumentString(`
     mutation CreateFacet($input: CreateFacetInput!) {
   createFacet(input: $input) {
     id
+    values {
+      id
+      code
+      translations {
+        id
+        languageCode
+      }
+    }
   }
 }
     `) as unknown as TypedDocumentString<CreateFacetMutation, CreateFacetMutationVariables>;
@@ -6006,6 +6020,11 @@ export const CreateFacetValuesDocument = new TypedDocumentString(`
     mutation CreateFacetValues($input: [CreateFacetValueInput!]!) {
   createFacetValues(input: $input) {
     id
+    code
+    translations {
+      id
+      languageCode
+    }
   }
 }
     `) as unknown as TypedDocumentString<CreateFacetValuesMutation, CreateFacetValuesMutationVariables>;
@@ -6169,6 +6188,14 @@ export const CreateOptionGroupDocument = new TypedDocumentString(`
     mutation CreateOptionGroup($input: CreateProductOptionGroupInput!) {
   createProductOptionGroup(input: $input) {
     id
+    options {
+      id
+      code
+      translations {
+        id
+        languageCode
+      }
+    }
   }
 }
     `) as unknown as TypedDocumentString<CreateOptionGroupMutation, CreateOptionGroupMutationVariables>;
@@ -6191,6 +6218,11 @@ export const CreateProductOptionDocument = new TypedDocumentString(`
     mutation CreateProductOption($input: CreateProductOptionInput!) {
   createProductOption(input: $input) {
     id
+    code
+    translations {
+      id
+      languageCode
+    }
   }
 }
     `) as unknown as TypedDocumentString<CreateProductOptionMutation, CreateProductOptionMutationVariables>;

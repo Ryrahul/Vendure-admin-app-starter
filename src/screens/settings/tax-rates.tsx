@@ -19,6 +19,7 @@ import { assertDeleted, useInvalidate } from '@/api/mutations';
 import { usePermissions } from '@/api/permissions';
 import { openPicker } from '@/api/picker';
 import { customerGroupPicker } from '@/api/pickers/common';
+import { Button } from '@/components/button';
 import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-fields-section';
 import { LinkRow, NumberRow, SelectRow, SwitchRow, TextRow, ValueRow } from '@/components/form/fields';
 import { InlineError } from '@/components/inline-error';
@@ -146,16 +147,32 @@ function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: 
             options={(options.data?.zones.items ?? []).map((z) => ({ value: z.id, label: z.name }))}
             onChange={edit(setZoneId)}
           />
-          <LinkRow
-            label="Customer group"
-            hint="Optional. Limits the rate to customers in this group."
-            value={group?.name}
-            disabled={!canEdit}
-            onPress={async () => {
-              const picked = await openPicker({ title: 'Customer group', source: customerGroupPicker });
-              if (picked?.[0]) edit(setGroup)({ id: picked[0].id, name: picked[0].title });
-            }}
-          />
+          {rate ? (
+            // Vendure ignores a null customerGroupId on update, so a set group can't be cleared:
+            // allow changing it, but only pick-to-replace.
+            <LinkRow
+              label="Customer group"
+              hint={group ? 'Can be changed but not removed (Vendure keeps the group on update).' : 'Optional. Limits the rate to customers in this group.'}
+              value={group?.name}
+              disabled={!canEdit}
+              onPress={async () => {
+                const picked = await openPicker({ title: 'Customer group', source: customerGroupPicker });
+                if (picked?.[0]) edit(setGroup)({ id: picked[0].id, name: picked[0].title });
+              }}
+            />
+          ) : (
+            <LinkRow
+              label="Customer group"
+              hint={group ? 'Tap to change. Use “Clear group” to apply the rate to everyone.' : 'Optional. Limits the rate to customers in this group.'}
+              value={group?.name}
+              disabled={!canEdit}
+              onPress={async () => {
+                const picked = await openPicker({ title: 'Customer group', source: customerGroupPicker });
+                if (picked?.[0]) edit(setGroup)({ id: picked[0].id, name: picked[0].title });
+              }}
+            />
+          )}
+          {!rate && group && canEdit ? <Button title="Clear group" variant="ghost" onPress={() => edit(setGroup)(null)} /> : null}
         </Section>
         <CustomFieldsSection
           defs={defs}

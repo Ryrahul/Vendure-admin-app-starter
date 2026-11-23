@@ -4,6 +4,7 @@
  */
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { usePermissions } from '@/api/permissions';
 import { openPicker } from '@/api/picker';
 import { assetPicker } from '@/api/pickers/common';
 import { Button } from '@/components/button';
@@ -53,6 +54,8 @@ export function AssetsEditor({
 }) {
   const { colors, spacing, radius } = useTheme();
   const { upload, uploading } = useAssetUpload();
+  const { can } = usePermissions();
+  const canUpload = can('CreateCatalog', 'CreateAsset');
   const { assets, featuredId } = value;
 
   const add = (added: EditableAsset[]) => {
@@ -124,13 +127,15 @@ export function AssetsEditor({
               if (picked) add(picked.map((p) => ({ id: p.id, preview: p.preview, name: p.title })));
             }}
           />
-          <Button
-            title="Upload image"
-            variant="secondary"
-            size="sm"
-            loading={uploading}
-            onPress={async () => add(await upload())}
-          />
+          {canUpload ? (
+            <Button
+              title="Upload image"
+              variant="secondary"
+              size="sm"
+              loading={uploading}
+              onPress={async () => add(await upload())}
+            />
+          ) : null}
         </View>
       ) : null}
     </Section>

@@ -25,7 +25,7 @@ import { useVendureMutation, useVendureQuery } from '@/api/hooks';
 import { assertDeleted, unwrapResult, useInvalidate } from '@/api/mutations';
 import { usePermissions } from '@/api/permissions';
 import { sellerPicker, zonePicker } from '@/api/pickers/settings-a';
-import { useServerConfig } from '@/api/session';
+import { useServerConfig, useSession } from '@/api/session';
 import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-fields-section';
 import { NumberRow, SelectRow, SwitchRow, TextRow, ValueRow } from '@/components/form/fields';
 import { DeleteSection, EntityListScreen, FormScroll, QueryBoundary, SaveHeader } from '@/components/screen-kit';
@@ -96,6 +96,9 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
 
   const [code, setCode] = useState(channel?.code ?? '');
   const [token, setToken] = useState(channel?.token ?? randomToken());
+  // Changing the active channel's token would break every following request in this session.
+  const activeToken = useSession().state.channelToken;
+  const isActive = !!channel && channel.token === activeToken;
   const [seller, setSeller] = useState<Picked | null>(channel?.seller ? { id: channel.seller.id, label: channel.seller.name } : null);
   const [defaultLanguage, setDefaultLanguage] = useState<string>(channel?.defaultLanguageCode ?? globalLanguages[0] ?? 'en');
   const [languages, setLanguages] = useState<string[]>(
@@ -174,10 +177,14 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
           />
           <TextRow
             label="Token"
-            hint="Sent as the vendure-token header to select this channel."
+            hint={
+              isActive
+                ? 'This is the channel you are using. Switch to another channel to change its token.'
+                : 'Sent as the vendure-token header to select this channel.'
+            }
             value={token}
             onChangeText={edit(setToken)}
-            readOnly={!canEdit}
+            readOnly={!canEdit || isActive}
             autoCapitalize="none"
             autoCorrect={false}
             mono

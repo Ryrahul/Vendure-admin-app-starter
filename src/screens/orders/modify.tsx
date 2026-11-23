@@ -15,7 +15,7 @@ import { openPicker } from '@/api/picker';
 import { variantPicker } from '@/api/pickers/common';
 import { useChannelInfo } from '@/api/use-channel-info';
 import { Button } from '@/components/button';
-import { TextRow } from '@/components/form/fields';
+import { SelectRow, TextRow } from '@/components/form/fields';
 import { InlineError } from '@/components/inline-error';
 import { ListRow } from '@/components/list-row';
 import { FormScroll, QueryBoundary } from '@/components/screen-kit';
@@ -30,6 +30,9 @@ import { QuantityRow, refundablePayments, type OrderDetail } from './parts';
 
 type Preview = Extract<ModifyOrderMutation['modifyOrder'], { __typename: 'Order' }>;
 
+/** A modification that was applied but whose follow-up state transition failed. */
+type Stranded = { orderId: string; code: string; target: string; message: string };
+
 export function ModifyOrderScreen({ id }: { id: string }) {
   const query = useVendureQuery(OrderDetailDocument, { id });
   const history = useVendureQuery(OrderHistoryDocument, {
@@ -38,6 +41,10 @@ export function ModifyOrderScreen({ id }: { id: string }) {
   });
   const entry = history.data?.order?.history.items.find((h) => (h.data as { to?: string }).to === 'Modifying');
   const previousState = (entry?.data as { from?: string } | undefined)?.from;
+  // Lives above the form: the form is keyed by `updatedAt` and remounts once the applied
+  // modification refetches, which must not bring the Apply button back.
+  const [stranded, setStranded] = useState<Stranded | null>(null);
+  if (stranded) return <StrandedModification stranded={stranded} onRetried={() => setStranded(null)} />;
   return (
     <QueryBoundary query={query} pick={(d) => d.order} noun="order">
       {(order) =>
@@ -47,14 +54,62 @@ export function ModifyOrderScreen({ id }: { id: string }) {
             <InlineError message={`Order ${order.code} is ${humanizeState(order.state)}, not Modifying. Start a modification from the order.`} />
           </View>
         ) : (
-          <ModifyForm key={order.updatedAt} order={order} previousState={previousState} />
+          <ModifyForm
+            key={order.updatedAt}
+            order={order}
+            history={{
+              state: previousState,
+              loading: history.isLoading,
+              error: history.isError && !history.data,
+              retry: () => void history.refetch(),
+            }}
+            onStranded={setStranded}
+          />
         )
       }
     </QueryBoundary>
   );
 }
 
-function ModifyForm({ order, previousState }: { order: OrderDetail; previousState?: string }) {
+/** The modification is already saved; only offer the state transition, never a re-apply. */
+function StrandedModification({ stranded, onRetried }: { stranded: Stranded; onRetried: () => void }) {
+  const { spacing } = useTheme();
+  const invalidate = useInvalidate();
+  const transition = useVendureMutation(TransitionOrderToStateDocument);
+  const [message, setMessage] = useState(stranded.message);
+  const retry = async () => {
+    try {
+      unwrapResult((await transition.mutateAsync({ id: stranded.orderId, state: stranded.target })).transitionOrderToState);
+      await invalidate(...ORDER_DOCS);
+      onRetried();
+      router.back();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : String(e));
+    }
+  };
+  return (
+    <FormScroll>
+      <Stack.Screen options={{ title: `Modify ${stranded.code}` }} />
+      <InlineError
+        message={`The modification was applied, but the order could not move to ${humanizeState(stranded.target)}: ${message}\nDo not modify again; return the order to ${humanizeState(stranded.target)} instead, or change its state from the order.`}
+      />
+      <View style={{ gap: spacing[3] }}>
+        <Button title={`Return order to ${humanizeState(stranded.target)}`} loading={transition.isPending} onPress={retry} />
+        <Button title="Back to order" variant="ghost" disabled={transition.isPending} onPress={() => router.back()} />
+      </View>
+    </FormScroll>
+  );
+}
+
+function ModifyForm({
+  order,
+  history,
+  onStranded,
+}: {
+  order: OrderDetail;
+  history: { state?: string; loading: boolean; error: boolean; retry: () => void };
+  onStranded: (s: Stranded) => void;
+}) {
   const { spacing } = useTheme();
   const { precision } = useChannelInfo();
   const money = (v: number) => formatMoney(v, order.currencyCode, precision);
@@ -67,6 +122,11 @@ function ModifyForm({ order, previousState }: { order: OrderDetail; previousStat
   const [note, setNote] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
+  // Fallback when the history has no "→ Modifying" entry: the user picks the state to return to.
+  const [chosenState, setChosenState] = useState<string | null>(null);
+  const returnOptions = order.nextStates.filter((s) => s !== 'Modifying' && s !== 'Cancelled' && s !== 'ArrangingAdditionalPayment');
+  const historyMissing = !history.loading && !history.error && !history.state;
+  const previousState = history.state ?? (historyMissing ? (chosenState ?? undefined) : undefined);
 
   const adjust = order.lines.filter((l) => quantities[l.id] !== l.quantity).map((l) => ({ orderLineId: l.id, quantity: quantities[l.id] ?? 0 }));
   const addItems = added.filter((a) => a.quantity > 0).map((a) => ({ productVariantId: a.id, quantity: a.quantity }));
@@ -79,10 +139,12 @@ function ModifyForm({ order, previousState }: { order: OrderDetail; previousStat
   };
   const reset = () => setPreview(null);
 
-  const returnState = async (state: string | undefined) => {
-    if (!state) throw new Error('Could not find the state the order was in before Modifying. Change it from the order’s state menu.');
+  const returnState = async (state: string) => {
     unwrapResult((await transition.mutateAsync({ id: order.id, state })).transitionOrderToState);
   };
+  const diff = preview ? preview.totalWithTax - order.totalWithTax : 0;
+  // A higher total goes to ArrangingAdditionalPayment; otherwise back to the pre-Modifying state.
+  const target = diff > 0 ? 'ArrangingAdditionalPayment' : previousState;
 
   const runPreview = async () => {
     setBusy(true);
@@ -97,8 +159,7 @@ function ModifyForm({ order, previousState }: { order: OrderDetail; previousStat
   };
 
   const apply = async () => {
-    if (!preview) return;
-    const diff = preview.totalWithTax - order.totalWithTax;
+    if (!preview || !target) return;
     const ok = await confirm({
       title: 'Apply modification?',
       message:
@@ -126,18 +187,27 @@ function ModifyForm({ order, previousState }: { order: OrderDetail; previousStat
         if (remaining > 0) throw new Error(`Settled payments cannot cover a refund of ${money(-diff)}.`);
       }
       unwrapResult((await modify.mutateAsync({ input: { ...input, dryRun: false, refunds } })).modifyOrder);
-      await returnState(diff > 0 ? 'ArrangingAdditionalPayment' : previousState);
-      await invalidate(...ORDER_DOCS);
-      router.back();
     } catch (e) {
       await invalidate(...ORDER_DOCS);
-      alertError(e, 'Could not modify order');
-    } finally {
       setBusy(false);
+      alertError(e, 'Could not modify order');
+      return;
     }
+    // The modification is saved from here on; a failure below must never lead to a re-apply.
+    try {
+      await returnState(target);
+    } catch (e) {
+      onStranded({ orderId: order.id, code: order.code, target, message: e instanceof Error ? e.message : String(e) });
+      await invalidate(...ORDER_DOCS);
+      return;
+    }
+    await invalidate(...ORDER_DOCS);
+    setBusy(false);
+    router.back();
   };
 
   const cancelModification = async () => {
+    if (!previousState) return;
     setBusy(true);
     try {
       await returnState(previousState);
@@ -209,16 +279,37 @@ function ModifyForm({ order, previousState }: { order: OrderDetail; previousStat
             />
           </Section>
         ) : null}
+        {history.loading ? (
+          <Section title="Return state">
+            <ListRow title="Loading order history…" subtitle="Needed to find the state the order was in before Modifying." />
+          </Section>
+        ) : history.error ? (
+          <Section title="Return state">
+            <InlineError message="Could not load the order history, so the state to return to is unknown." />
+            <View style={{ padding: spacing[3] }}>
+              <Button title="Retry" size="sm" variant="secondary" onPress={history.retry} />
+            </View>
+          </Section>
+        ) : historyMissing ? (
+          <Section title="Return state" footer="The history does not show the state before Modifying. Choose where the order goes afterwards.">
+            <SelectRow
+              label="Return to"
+              value={chosenState}
+              options={returnOptions.map((s) => ({ value: s, label: humanizeState(s) }))}
+              onChange={setChosenState}
+            />
+          </Section>
+        ) : null}
         <View style={{ gap: spacing[3] }}>
           {preview ? (
-            <Button title="Apply modification" loading={busy} onPress={apply} />
+            <Button title="Apply modification" loading={busy} disabled={!target} onPress={apply} />
           ) : (
             <Button title="Preview changes" loading={busy} disabled={!changed} onPress={runPreview} />
           )}
           <Button
             title={previousState ? `Cancel (back to ${humanizeState(previousState)})` : 'Cancel modification'}
             variant="ghost"
-            disabled={busy}
+            disabled={busy || !previousState}
             onPress={cancelModification}
           />
         </View>

@@ -105,6 +105,7 @@ export function NumberRow({
   error,
   readOnly,
   suffix,
+  emptyValue = null,
 }: {
   label: string;
   value: number | null | undefined;
@@ -114,11 +115,16 @@ export function NumberRow({
   error?: string;
   readOnly?: boolean;
   suffix?: string;
+  /** Emitted while the field is empty or just "-" (MoneyRow uses 0). */
+  emptyValue?: number | null;
 }) {
-  const [draft, setDraft] = useState(value == null ? '' : String(value));
-  // Keep the draft when it parses to the same number (so "1." stays while typing).
-  const parsedDraft = draft.trim() === '' ? null : Number(draft.replace(',', '.'));
-  const text = parsedDraft === (value ?? null) ? draft : value == null ? '' : String(value);
+  // The text the user typed and the number we emitted for it. While the parent's value still
+  // equals what we emitted, show the typed text (keeps "1.", "-" or "" while editing).
+  const [draft, setDraft] = useState<{ text: string; emitted: number | null }>(() => ({
+    text: value == null ? '' : String(value),
+    emitted: value ?? null,
+  }));
+  const text = (value ?? null) === draft.emitted ? draft.text : value == null ? '' : String(value);
   return (
     <TextRow
       label={suffix ? `${label} (${suffix})` : label}
@@ -129,10 +135,11 @@ export function NumberRow({
       keyboardType={integer ? 'number-pad' : 'decimal-pad'}
       onChangeText={(t) => {
         const cleaned = integer ? t.replace(/[^0-9-]/g, '') : t.replace(/[^0-9.,-]/g, '');
-        setDraft(cleaned);
-        if (cleaned.trim() === '' || cleaned === '-') return onChange(null);
         const n = Number(cleaned.replace(',', '.'));
-        if (!Number.isNaN(n)) onChange(integer ? Math.trunc(n) : n);
+        const next =
+          cleaned.trim() === '' || cleaned === '-' ? emptyValue : Number.isNaN(n) ? draft.emitted : integer ? Math.trunc(n) : n;
+        setDraft({ text: cleaned, emitted: next });
+        onChange(next);
       }}
     />
   );
@@ -164,6 +171,7 @@ export function MoneyRow({
       hint={hint}
       readOnly={readOnly}
       value={value == null ? null : value / factor}
+      emptyValue={0}
       onChange={(major) => onChange(Math.round((major ?? 0) * factor))}
     />
   );

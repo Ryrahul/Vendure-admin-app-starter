@@ -21,7 +21,15 @@ import { TextRow, ValueRow } from '@/components/form/fields';
 import { DeleteSection, EntityListScreen, FormScroll, QueryBoundary, SaveHeader } from '@/components/screen-kit';
 import { Section } from '@/components/section';
 import type { OptionGroupDetailQuery } from '@/gql/graphql';
-import { ChildValuesEditor, childDrafts, childValuesInput } from '@/screens/facets/child-values';
+import { ChildValuesEditor } from '@/screens/facets/child-values';
+import {
+  childDrafts,
+  childValuesInput,
+  markSaved,
+  matchCreated,
+  nestedChildInput,
+  nestedCustomFieldUpdates,
+} from '@/screens/facets/child-values-input';
 import { activeTranslation, editLanguage, toCode } from '@/screens/products/helpers';
 import { alertError } from '@/utils/confirm';
 import { formatDate } from '@/utils/format';
@@ -108,24 +116,52 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
       { ...(translation ? { id: translation.id } : {}), languageCode: language, name: name.trim(), customFields: translationCustomFields },
     ];
     setSaving(true);
+    let createdId: string | undefined;
+    let ok = false;
     try {
       if (group) {
         await update.mutateAsync({ input: { id: group.id, code: code.trim() || toCode(name), customFields, translations } });
-        for (const o of optionInput.create) await createOption.mutateAsync({ input: { ...o, productOptionGroupId: group.id } });
-        for (const o of optionInput.update) await updateOption.mutateAsync({ input: o });
+        // Each step records its progress in the drafts, so a retry after a failure neither
+        // re-creates options nor re-sends ones already saved.
+        let drafts = options;
+        for (const o of optionInput.create) {
+          const res = await createOption.mutateAsync({ input: { ...o.input, productOptionGroupId: group.id } });
+          drafts = markSaved(drafts, [{ key: o.key, saved: res.createProductOption }]);
+          setOptions(drafts);
+        }
+        for (const o of optionInput.update) {
+          await updateOption.mutateAsync({ input: o.input });
+          drafts = markSaved(drafts, [], [o.key]);
+          setOptions(drafts);
+        }
       } else {
-        // New groups are created with their options in one call.
+        // One call creates the group with its options; option custom fields aren't part of
+        // CreateGroupOptionInput, so they follow as updates.
         const res = await create.mutateAsync({
-          input: { code: code.trim() || toCode(name), customFields, translations, options: optionInput.create },
+          input: {
+            code: code.trim() || toCode(name),
+            customFields,
+            translations,
+            options: optionInput.create.map(({ input }) => nestedChildInput(input)),
+          },
         });
-        router.replace(`/catalog/option-groups/${res.createProductOptionGroup.id}`);
+        createdId = res.createProductOptionGroup.id;
+        for (const input of nestedCustomFieldUpdates(matchCreated(optionInput.create, res.createProductOptionGroup.options))) {
+          await updateOption.mutateAsync({ input });
+        }
       }
+      ok = true;
       setDirty(false);
-      await invalidate(OptionGroupListDocument, OptionGroupDetailDocument);
     } catch (e) {
-      alertError(e, 'Could not save');
+      alertError(e, createdId ? 'Option group created, but option fields were not saved' : 'Could not save');
     } finally {
       setSaving(false);
+      // On failure keep the local drafts (already reconciled above) instead of reloading the form.
+      await (ok || createdId
+        ? invalidate(OptionGroupListDocument, OptionGroupDetailDocument)
+        : invalidate(OptionGroupListDocument)
+      ).catch(() => {});
+      if (createdId) router.replace(`/catalog/option-groups/${createdId}`);
     }
   };
 
@@ -180,7 +216,8 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
           value={options}
           onChange={edit(setOptions)}
           readOnly={!canEdit}
-          canDelete={can('DeleteCatalog', 'DeleteProduct', 'UpdateCatalog', 'UpdateProduct')}
+          canCreate={can('CreateCatalog', 'CreateProduct')}
+          canDelete={can('DeleteCatalog', 'DeleteProduct')}
           onDelete={async (optionId) => {
             assertDeleted((await deleteOption.mutateAsync({ id: optionId })).deleteProductOption);
             await invalidate(OptionGroupListDocument);

@@ -56,7 +56,7 @@ export function CustomerListScreen() {
     PAGE_SIZE,
     [term],
   );
-  const items = list.items.filter((c: Customer) => (filter === 'all' ? true : filter === 'registered' ? !!c.user?.verified : !c.user));
+  const items = list.items.filter((c: Customer) => (filter === 'all' ? true : filter === 'registered' ? !!c.user : !c.user));
   // A client-side filter can leave a short page; keep loading until it fills (or the list ends).
   const { hasNextPage, isFetching, fetchNextPage } = list;
   useEffect(() => {

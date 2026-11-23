@@ -4,6 +4,7 @@
  * coupon codes, totals, custom fields, then "Complete draft" (→ ArrangingPayment) or delete.
  */
 import { router, Stack } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -26,7 +27,7 @@ import {
   UnsetDraftOrderShippingAddressDocument,
 } from '@/api/documents/draft-orders';
 import { OrderDetailDocument, OrderListDocument, TransitionOrderToStateDocument } from '@/api/documents/orders';
-import { useVendureMutation, useVendureQuery } from '@/api/hooks';
+import { operationName, useVendureMutation, useVendureQuery } from '@/api/hooks';
 import { assertDeleted, unwrapResult, useInvalidate } from '@/api/mutations';
 import { usePermissions } from '@/api/permissions';
 import { openPicker } from '@/api/picker';
@@ -74,9 +75,14 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
   const { spacing } = useTheme();
   const { precision } = useChannelInfo();
   const { can } = usePermissions();
-  const canEdit = can('UpdateOrder', 'CreateOrder');
+  // Mirrors the Vendure resolvers: draft mutations need CreateOrder, except adjustDraftOrderLine
+  // (UpdateOrder); completing uses transitionOrderToState (UpdateOrder).
+  const canEdit = can('CreateOrder');
+  const canAdjustLines = canEdit && can('UpdateOrder');
+  const canComplete = can('UpdateOrder');
   const money = (v: number) => formatMoney(v, order.currencyCode, precision);
   const invalidate = useInvalidate();
+  const queryClient = useQueryClient();
   const orderId = order.id;
 
   const setCustomer = useVendureMutation(SetCustomerForDraftOrderDocument);
@@ -131,7 +137,7 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
     if (!v) return;
     const existing = order.lines.find((l) => l.productVariant.id === v.id);
     await act('lines', async () =>
-      existing
+      existing && canAdjustLines
         ? unwrapResult((await adjustLine.mutateAsync({ orderId, input: { orderLineId: existing.id, quantity: existing.quantity + 1 } })).adjustDraftOrderLine)
         : unwrapResult((await addItem.mutateAsync({ orderId, input: { productVariantId: v.id, quantity: 1 } })).addItemToDraftOrder),
     );
@@ -155,7 +161,12 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
     if (!(await confirm({ title: 'Complete draft?', message: 'The order moves to “Arranging payment”. You can then add a payment.', confirmLabel: 'Complete' }))) return;
     const ok = await act('complete', async () => unwrapResult((await transition.mutateAsync({ id: orderId, state: 'ArrangingPayment' })).transitionOrderToState), 'Could not complete draft');
     if (ok) {
-      await invalidate(OrderDetailDocument);
+      // Refetch (not just mark stale) before navigating: orders/detail redirects Draft orders back
+      // here, so it must not render from a cached Draft copy.
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: [operationName(OrderDetailDocument)] }),
+        invalidate(OrderListDocument),
+      ]);
       router.replace(`/orders/${orderId}`);
     }
   };
@@ -228,7 +239,7 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
               label={l.productVariant.name}
               hint={`${l.productVariant.sku} · ${money(l.discountedLinePriceWithTax)}`}
               value={l.quantity}
-              disabled={!canEdit || busy === `line-${l.id}`}
+              disabled={!canAdjustLines || busy === `line-${l.id}`}
               onChange={(q) => {
                 if (q > 0) return void changeQuantity(l.id, q);
                 void confirm({ title: 'Remove line?', message: l.productVariant.name, confirmLabel: 'Remove', destructive: true }).then(
@@ -349,7 +360,7 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
 
         <DraftCustomFields key={order.updatedAt} order={order} canEdit={canEdit} onSaved={refresh} />
 
-        {canEdit ? <Button title="Complete draft" loading={busy === 'complete'} onPress={complete} /> : null}
+        {canComplete ? <Button title="Complete draft" loading={busy === 'complete'} onPress={complete} /> : null}
 
         <DeleteSection
           label="Delete draft"

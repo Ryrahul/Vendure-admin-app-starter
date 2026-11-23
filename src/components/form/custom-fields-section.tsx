@@ -8,6 +8,8 @@
  * Load the values with `customFields @customFields(entity: "Product")` in the document, merge
  * them with `customFieldValues()` and send them back with `customFieldsInput()`.
  */
+import { useState } from 'react';
+
 import { customFieldsFor, type CustomFieldDef } from '@/api/custom-fields';
 import { openPicker, type PickerSource } from '@/api/picker';
 import {
@@ -135,22 +137,7 @@ export function CustomFieldInput({
   }
 
   if (def.list) {
-    // Scalar lists are edited one value per line.
-    const list = (value as unknown[] | null) ?? [];
-    const numeric = def.type === 'int' || def.type === 'float';
-    return (
-      <TextRow
-        label={label}
-        hint={hint ?? 'One value per line'}
-        readOnly={readOnly}
-        multiline
-        value={list.map((v) => String(v ?? '')).join('\n')}
-        onChangeText={(t) => {
-          const parts = t.split('\n');
-          onChange(numeric ? parts.filter((p) => p.trim() !== '').map(Number).filter((n) => !Number.isNaN(n)) : parts);
-        }}
-      />
-    );
+    return <ListFieldInput def={def} value={value} onChange={onChange} readOnly={readOnly} />;
   }
 
   switch (def.type) {
@@ -204,4 +191,44 @@ export function CustomFieldInput({
     default:
       return <ValueRow label={label} value={value == null ? '' : String(value)} />;
   }
+}
+
+/** Scalar list custom fields, edited one value per line. Empty lines are dropped on save. */
+function ListFieldInput({
+  def,
+  value,
+  onChange,
+  readOnly,
+}: {
+  def: CustomFieldDef;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  readOnly: boolean;
+}) {
+  const list = (value as unknown[] | null) ?? [];
+  // Keep the raw text locally so typing a newline (an empty line, for now) isn't swallowed.
+  const [text, setText] = useState(() => list.map((v) => String(v ?? '')).join('\n'));
+  const convert = (line: string): unknown => {
+    if (def.type === 'int' || def.type === 'float') return Number(line);
+    if (def.type === 'boolean') return line.trim().toLowerCase() === 'true';
+    return line;
+  };
+  return (
+    <TextRow
+      label={def.label}
+      hint={def.description ?? (def.type === 'boolean' ? 'One value per line: true or false' : 'One value per line')}
+      readOnly={readOnly}
+      multiline
+      value={text}
+      onChangeText={(t) => {
+        setText(t);
+        const values = t
+          .split('\n')
+          .filter((l) => l.trim() !== '')
+          .map(convert)
+          .filter((v) => !(typeof v === 'number' && Number.isNaN(v)));
+        onChange(values);
+      }}
+    />
+  );
 }

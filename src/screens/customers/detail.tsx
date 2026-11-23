@@ -158,7 +158,7 @@ function CustomerForm({ customer, refetch, refreshing }: { customer?: Customer; 
             <AccountSection customer={customer} canEdit={can('UpdateCustomer')} />
             <AddressesSection customer={customer} canEdit={can('UpdateCustomer')} />
             <OrdersSection customerId={customer.id} />
-            <GroupsSection customer={customer} canEdit={can('UpdateCustomerGroup', 'UpdateCustomer')} />
+            <GroupsSection customer={customer} canEdit={can('UpdateCustomerGroup')} />
             <CustomerHistory customerId={customer.id} canNote={can('UpdateCustomer')} />
             <Section title="Info">
               <ValueRow label="ID" value={customer.id} mono />
@@ -337,27 +337,42 @@ function GroupsSection({ customer, canEdit }: { customer: Customer; canEdit: boo
       {canEdit ? (
         <ActionBar>
           <Button
-            title="Add to groups"
+            title="Edit groups"
             size="sm"
             variant="secondary"
             loading={busy}
             onPress={async () => {
               const current = customer.groups.map((g) => g.id);
               const picked = await openPicker({
-                title: 'Add to groups',
+                title: 'Groups',
                 source: customerGroupPicker,
                 multiple: true,
                 selected: current,
                 selectedItems: customer.groups.map((g) => ({ id: g.id, title: g.name })),
               });
-              const added = (picked ?? []).filter((p) => !current.includes(p.id));
-              if (!added.length) return;
+              if (!picked) return;
+              const pickedIds = picked.map((p) => p.id);
+              const added = picked.filter((p) => !current.includes(p.id));
+              const removed = customer.groups.filter((g) => !pickedIds.includes(g.id));
+              if (!added.length && !removed.length) return;
+              if (
+                removed.length &&
+                !(await confirm({
+                  title: `Remove from ${removed.length === 1 ? `“${removed[0].name}”` : `${removed.length} groups`}?`,
+                  message: removed.map((g) => g.name).join(', '),
+                  confirmLabel: 'Remove',
+                  destructive: true,
+                }))
+              )
+                return;
               setBusy(true);
               try {
                 for (const g of added) await add.mutateAsync({ customerGroupId: g.id, customerIds: [customer.id] });
+                for (const g of removed) await remove.mutateAsync({ customerGroupId: g.id, customerIds: [customer.id] });
                 await refresh();
               } catch (e) {
-                alertError(e, 'Could not add to group');
+                await refresh();
+                alertError(e, 'Could not update groups');
               } finally {
                 setBusy(false);
               }

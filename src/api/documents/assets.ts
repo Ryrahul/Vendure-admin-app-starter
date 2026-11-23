@@ -33,9 +33,15 @@ export const AssetDetailDocument = graphql(`
         x
         y
       }
+      languageCode
       tags {
         id
         value
+      }
+      translations @customFields(entity: "Asset", locale: true) {
+        id
+        languageCode
+        name
       }
       customFields @customFields(entity: "Asset")
     }

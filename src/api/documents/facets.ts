@@ -57,6 +57,14 @@ export const CreateFacetDocument = graphql(`
   mutation CreateFacet($input: CreateFacetInput!) {
     createFacet(input: $input) {
       id
+      values {
+        id
+        code
+        translations {
+          id
+          languageCode
+        }
+      }
     }
   }
 `);
@@ -82,6 +90,11 @@ export const CreateFacetValuesDocument = graphql(`
   mutation CreateFacetValues($input: [CreateFacetValueInput!]!) {
     createFacetValues(input: $input) {
       id
+      code
+      translations {
+        id
+        languageCode
+      }
     }
   }
 `);

@@ -53,6 +53,14 @@ export const CreateOptionGroupDocument = graphql(`
   mutation CreateOptionGroup($input: CreateProductOptionGroupInput!) {
     createProductOptionGroup(input: $input) {
       id
+      options {
+        id
+        code
+        translations {
+          id
+          languageCode
+        }
+      }
     }
   }
 `);
@@ -78,6 +86,11 @@ export const CreateProductOptionDocument = graphql(`
   mutation CreateProductOption($input: CreateProductOptionInput!) {
     createProductOption(input: $input) {
       id
+      code
+      translations {
+        id
+        languageCode
+      }
     }
   }
 `);

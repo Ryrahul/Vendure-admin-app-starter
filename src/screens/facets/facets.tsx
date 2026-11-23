@@ -27,7 +27,15 @@ import { activeTranslation, editLanguage, toCode } from '@/screens/products/help
 import { alertError } from '@/utils/confirm';
 import { formatDate } from '@/utils/format';
 
-import { ChildValuesEditor, childDrafts, childValuesInput } from './child-values';
+import { ChildValuesEditor } from './child-values';
+import {
+  childDrafts,
+  childValuesInput,
+  markSaved,
+  matchCreated,
+  nestedChildInput,
+  nestedCustomFieldUpdates,
+} from './child-values-input';
 
 export function FacetListScreen() {
   const { can } = usePermissions();
@@ -95,6 +103,7 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
   const [cf, setCf] = useState(() => customFieldValues(defs, facet?.customFields, translation));
   const [values, setValues] = useState(() => childDrafts(facet?.values ?? [], valueDefs));
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
   const edit =
     <T,>(set: (v: T) => void) =>
     (v: T) => {
@@ -103,7 +112,6 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
     };
 
   const canEdit = facet ? can('UpdateCatalog', 'UpdateFacet') : can('CreateCatalog', 'CreateFacet');
-  const saving = create.isPending || update.isPending || createValues.isPending || updateValues.isPending;
   const refresh = () => invalidate(FacetListDocument, FacetDetailDocument, PickFacetValuesDocument);
 
   const save = async () => {
@@ -120,23 +128,50 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
         customFields: translationCustomFields,
       },
     ];
+    setSaving(true);
+    let createdId: string | undefined;
+    let ok = false;
     try {
-      let facetId = facet?.id;
       if (facet) {
         await update.mutateAsync({ input: { id: facet.id, code: code.trim() || toCode(name), isPrivate, customFields, translations } });
+        // Each step records its progress in the drafts, so a retry after a failure neither
+        // re-creates values nor re-sends ones already saved.
+        let drafts = values;
+        if (valueInput.create.length) {
+          const res = await createValues.mutateAsync({ input: valueInput.create.map(({ input }) => ({ ...input, facetId: facet.id })) });
+          drafts = markSaved(drafts, matchCreated(valueInput.create, res.createFacetValues));
+          setValues(drafts);
+        }
+        if (valueInput.update.length) {
+          await updateValues.mutateAsync({ input: valueInput.update.map((u) => u.input) });
+          drafts = markSaved(drafts, [], valueInput.update.map((u) => u.key));
+          setValues(drafts);
+        }
       } else {
-        const res = await create.mutateAsync({ input: { code: code.trim() || toCode(name), isPrivate, customFields, translations } });
-        facetId = res.createFacet.id;
+        // One call creates the facet with its values; value custom fields aren't part of
+        // CreateFacetValueWithFacetInput, so they follow as an update.
+        const res = await create.mutateAsync({
+          input: {
+            code: code.trim() || toCode(name),
+            isPrivate,
+            customFields,
+            translations,
+            values: valueInput.create.map(({ input }) => nestedChildInput(input)),
+          },
+        });
+        createdId = res.createFacet.id;
+        const cfUpdates = nestedCustomFieldUpdates(matchCreated(valueInput.create, res.createFacet.values));
+        if (cfUpdates.length) await updateValues.mutateAsync({ input: cfUpdates });
       }
-      if (facetId && valueInput.create.length) {
-        await createValues.mutateAsync({ input: valueInput.create.map((v) => ({ ...v, facetId })) });
-      }
-      if (valueInput.update.length) await updateValues.mutateAsync({ input: valueInput.update });
-      if (!facet && facetId) router.replace(`/catalog/facets/${facetId}`);
+      ok = true;
       setDirty(false);
-      await refresh();
     } catch (e) {
-      alertError(e, 'Could not save');
+      alertError(e, createdId ? 'Facet created, but value fields were not saved' : 'Could not save');
+    } finally {
+      setSaving(false);
+      // On failure keep the local drafts (already reconciled above) instead of reloading the form.
+      await (ok || createdId ? refresh() : invalidate(FacetListDocument, PickFacetValuesDocument)).catch(() => {});
+      if (createdId) router.replace(`/catalog/facets/${createdId}`);
     }
   };
 
@@ -198,6 +233,7 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
           value={values}
           onChange={edit(setValues)}
           readOnly={!canEdit}
+          canCreate={can('CreateCatalog', 'CreateFacet')}
           canDelete={can('DeleteCatalog', 'DeleteFacet')}
           onDelete={async (valueId) => {
             const res = await deleteValues.mutateAsync({ ids: [valueId], force: false });

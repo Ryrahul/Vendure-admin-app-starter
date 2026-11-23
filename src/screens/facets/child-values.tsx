@@ -2,87 +2,26 @@
  * Inline editor for a parent's translatable child items: facet values of a facet, options of
  * an option group. Items are listed in one section; tapping one opens its fields (name, code,
  * custom fields) below the list. New and edited items are saved by the parent screen's Save
- * (`childValuesInput`); deleting an existing item runs immediately after a confirmation.
+ * (`childValuesInput` in `child-values-input.ts`); deleting an existing item runs immediately
+ * after a confirmation.
  */
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { customFieldsInput, customFieldValues, type CustomFieldDef } from '@/api/custom-fields';
+import { customFieldValues, type CustomFieldDef } from '@/api/custom-fields';
 import { Button } from '@/components/button';
 import { CustomFieldsSection } from '@/components/form/custom-fields-section';
 import { TextRow } from '@/components/form/fields';
 import { ListRow } from '@/components/list-row';
 import { Section } from '@/components/section';
 import { StatusBadge } from '@/components/status-badge';
-import type { LanguageCode } from '@/gql/graphql';
-import { activeTranslation, toCode } from '@/screens/products/helpers';
+import { toCode } from '@/screens/products/helpers';
 import { useTheme } from '@/theme';
 import { alertError, confirm } from '@/utils/confirm';
 
-export interface ChildDraft {
-  key: string;
-  id?: string;
-  translationId?: string;
-  languageCode: string;
-  name: string;
-  code: string;
-  cf: Record<string, unknown>;
-  dirty: boolean;
-  /** For new items: the code follows the name until edited. */
-  codeTouched: boolean;
-}
-
-type ServerChild = {
-  id: string;
-  code: string;
-  name: string;
-  languageCode?: string | null;
-  translations: { id: string; languageCode: string; name: string; customFields?: unknown }[];
-  customFields?: unknown;
-};
+import type { ChildDraft } from './child-values-input';
 
 let counter = 0;
-
-export function childDrafts(items: ServerChild[], defs: CustomFieldDef[]): ChildDraft[] {
-  return items.map((item) => {
-    const tr = activeTranslation(item);
-    return {
-      key: item.id,
-      id: item.id,
-      translationId: tr?.id,
-      languageCode: tr?.languageCode ?? item.languageCode ?? 'en',
-      name: tr?.name ?? item.name,
-      code: item.code,
-      cf: customFieldValues(defs, item.customFields, tr),
-      dirty: false,
-      codeTouched: true,
-    };
-  });
-}
-
-/** Splits drafts into create and update inputs (only new or edited items). */
-export function childValuesInput(drafts: ChildDraft[], defs: CustomFieldDef[], languageCode: string) {
-  const toInput = (d: ChildDraft) => {
-    const { customFields, translationCustomFields } = customFieldsInput(defs, d.cf);
-    return {
-      code: d.code.trim() || toCode(d.name),
-      customFields,
-      translations: [
-        {
-          ...(d.translationId ? { id: d.translationId } : {}),
-          languageCode: (d.id ? d.languageCode : languageCode) as LanguageCode,
-          name: d.name.trim(),
-          customFields: translationCustomFields,
-        },
-      ],
-    };
-  };
-  return {
-    create: drafts.filter((d) => !d.id).map(toInput),
-    update: drafts.filter((d) => d.id && d.dirty).map((d) => ({ id: d.id!, ...toInput(d) })),
-    invalid: drafts.filter((d) => (d.dirty || !d.id) && !d.name.trim()),
-  };
-}
 
 export function ChildValuesEditor({
   title,
@@ -91,6 +30,7 @@ export function ChildValuesEditor({
   value,
   onChange,
   readOnly,
+  canCreate = true,
   canDelete,
   onDelete,
 }: {
@@ -99,7 +39,11 @@ export function ChildValuesEditor({
   defs: CustomFieldDef[];
   value: ChildDraft[];
   onChange: (value: ChildDraft[]) => void;
+  /** Edits to name, code and custom fields (and discarding unsaved items). */
   readOnly?: boolean;
+  /** Shows "Add" (also needs `readOnly` off, since new items are saved by the parent's Save). */
+  canCreate?: boolean;
+  /** Shows "Delete" on saved items; independent of `readOnly`. */
   canDelete?: boolean;
   /** Deletes a saved item on the server; throw to keep it. */
   onDelete: (id: string) => Promise<void>;
@@ -148,7 +92,7 @@ export function ChildValuesEditor({
     <>
       <Section
         title={`${title} (${value.length})`}
-        action={readOnly ? undefined : <Button title={`Add ${noun}`} variant="ghost" size="sm" onPress={add} />}>
+        action={readOnly || !canCreate ? undefined : <Button title={`Add ${noun}`} variant="ghost" size="sm" onPress={add} />}>
         {value.length ? (
           value.map((d) => (
             <ListRow
@@ -191,7 +135,7 @@ export function ChildValuesEditor({
               readOnly={readOnly}
               onChangeText={(code) => patch(current.key, { code, codeTouched: true })}
             />
-            {!readOnly && (canDelete || !current.id) ? (
+            {(current.id ? canDelete : !readOnly) ? (
               <View style={{ padding: spacing[3] }}>
                 <Button
                   title={current.id ? `Delete ${noun}` : `Discard ${noun}`}

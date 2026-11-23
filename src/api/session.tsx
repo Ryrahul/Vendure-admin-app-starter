@@ -85,8 +85,11 @@ async function loadServerConfig(base: ClientState): Promise<ServerConfig | undef
       moneyStrategyPrecision: serverConfig.moneyStrategyPrecision,
     };
   } catch (e) {
-    // Network failures should surface; a permissions error just means no config.
+    // Network failures surface (and are retried later); a permissions error just means no config.
     if (e instanceof VendureApiError && e.code === 'NETWORK_ERROR') throw e;
+    if (!(e instanceof VendureApiError && e.isAuthError)) {
+      console.warn(`Could not load the server config; custom fields are hidden: ${(e as Error).message}`);
+    }
     return undefined;
   }
 }
@@ -110,6 +113,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Always-current snapshot for request(): avoids stale closures inside query functions.
   // Every write goes through update(), so the ref is the source of truth.
   const stateRef = useRef(state);
+
+  // Server config is retried lazily (first request) if it couldn't load at startup, e.g. offline.
+  const configLoad = useRef<Promise<void> | null>(null);
+  const configUnavailable = useRef(false);
 
   const update = useCallback((patch: Partial<SessionState>) => {
     const next = { ...stateRef.current, ...patch };
@@ -190,6 +197,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         save(KEYS.channelToken, channel.token),
       ]);
       queryClient.clear();
+      configUnavailable.current = !serverConfig;
       update({ apiUrl, authToken: res.authToken, channelToken: channel.token, channels, identifier, serverConfig });
     },
     [loadUser, queryClient, update],
@@ -198,6 +206,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const execute = useCallback<SessionContextValue['execute']>(
     async (doc, variables, signal) => {
       try {
+        const { serverConfig: loaded, authToken, channelToken } = stateRef.current;
+        if (!loaded && authToken && channelToken && !configUnavailable.current) {
+          configLoad.current ??= loadServerConfig(stateRef.current)
+            .then((serverConfig) => {
+              if (serverConfig) update({ serverConfig });
+              else configUnavailable.current = true; // no permission / unsupported: don't retry
+            })
+            .catch(() => {
+              // Still offline: try again on the next request.
+            })
+            .finally(() => {
+              configLoad.current = null;
+            });
+          await configLoad.current;
+        }
         const current = stateRef.current;
         const expanded = expandCustomFields(doc.toString(), current.serverConfig?.customFields);
         const res = await request(current, { toString: () => expanded } as typeof doc, variables, signal);

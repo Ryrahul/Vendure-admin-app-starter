@@ -123,7 +123,7 @@ function ApiKeyForm({
 
   const [name, setName] = useState(translation?.name ?? apiKey?.name ?? '');
   const [roles, setRoles] = useState<Picked[]>(apiKey?.user.roles.map((r) => ({ id: r.id, label: roleLabel(r) })) ?? []);
-  const [cf, setCf] = useState(() => customFieldValues(defs, apiKey?.customFields));
+  const [cf, setCf] = useState(() => customFieldValues(defs, apiKey?.customFields, translation));
 
   const canEdit = apiKey ? can('UpdateApiKey') : can('CreateApiKey');
   const roleOptions = isSuperAdmin
@@ -132,17 +132,28 @@ function ApiKeyForm({
 
   const save = async () => {
     if (!name.trim()) return alertError(new Error('Name is required.'), 'Missing name');
-    const { customFields } = customFieldsInput(defs, cf);
+    const { customFields, translationCustomFields } = customFieldsInput(defs, cf);
     const roleIds = roles.map((r) => r.id);
     try {
       if (apiKey) {
         const lang = (translation?.languageCode ?? language) as LanguageCode;
         await update.mutateAsync({
-          input: { id: apiKey.id, roleIds, customFields, translations: [{ id: translation?.id, languageCode: lang, name: name.trim() }] },
+          input: {
+            id: apiKey.id,
+            roleIds,
+            customFields,
+            translations: [
+              { id: translation?.id, languageCode: lang, name: name.trim(), customFields: translationCustomFields },
+            ],
+          },
         });
       } else {
         const res = await create.mutateAsync({
-          input: { roleIds, customFields, translations: [{ languageCode: language, name: name.trim() }] },
+          input: {
+            roleIds,
+            customFields,
+            translations: [{ languageCode: language, name: name.trim(), customFields: translationCustomFields }],
+          },
         });
         freshSecrets.set(res.createApiKey.entityId, res.createApiKey.apiKey);
         router.replace(`/more/api-keys/${res.createApiKey.entityId}`);

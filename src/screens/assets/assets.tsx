@@ -32,6 +32,7 @@ import { Thumbnail } from '@/components/thumbnail';
 import { PAGE_SIZE } from '@/constants';
 import type { AssetDetailQuery } from '@/gql/graphql';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { activeTranslation, editLanguage } from '@/screens/products/helpers';
 import { useTheme } from '@/theme';
 import { assetUrl } from '@/utils/asset';
 import { alertError } from '@/utils/confirm';
@@ -176,7 +177,8 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
   const [name, setName] = useState(asset.name);
   const [tags, setTags] = useState(() => asset.tags.map((t) => t.value));
   const [newTag, setNewTag] = useState('');
-  const [cf, setCf] = useState(() => customFieldValues(defs, asset.customFields));
+  const translation = activeTranslation(asset);
+  const [cf, setCf] = useState(() => customFieldValues(defs, asset.customFields, translation));
   const [dirty, setDirty] = useState(false);
 
   const canEdit = can('UpdateCatalog', 'UpdateAsset');
@@ -193,7 +195,17 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
   const save = async () => {
     if (!name.trim()) return alertError(new Error('Name is required.'), 'Missing name');
     try {
-      await update.mutateAsync({ input: { id: asset.id, name: name.trim(), tags, customFields: customFieldsInput(defs, cf).customFields } });
+      const { customFields, translationCustomFields } = customFieldsInput(defs, cf);
+      // Only the active language's translation is sent; other languages stay untouched.
+      const translations = [
+        {
+          ...(translation ? { id: translation.id } : {}),
+          languageCode: editLanguage(asset),
+          name: name.trim(),
+          customFields: translationCustomFields,
+        },
+      ];
+      await update.mutateAsync({ input: { id: asset.id, name: name.trim(), tags, customFields, translations } });
       setDirty(false);
       await invalidate(AssetDetailDocument, AssetListDocument, AssetTagsDocument, PickAssetsDocument);
     } catch (e) {

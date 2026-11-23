@@ -27,7 +27,8 @@ function CancelForm({ order }: { order: OrderDetail }) {
   const cancel = useVendureMutation(CancelOrderDocument);
   const [whole, setWhole] = useState(true);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [cancelShipping, setCancelShipping] = useState(true);
+  // Shipping is only cancelled by default with the whole order; a partial cancel keeps it.
+  const [cancelShipping, setCancelShipping] = useState(whole);
   const [reason, setReason] = useState('');
   const selected = Object.values(quantities).reduce((a, b) => a + b, 0);
   const ready = whole || selected > 0;
@@ -70,7 +71,14 @@ function CancelForm({ order }: { order: OrderDetail }) {
       <SaveHeader title={`Cancel ${order.code}`} dirty={ready} saving={cancel.isPending} onSave={submit} label="Cancel…" />
       <FormScroll>
         <Section>
-          <SwitchRow label="Cancel the whole order" value={whole} onValueChange={setWhole} />
+          <SwitchRow
+            label="Cancel the whole order"
+            value={whole}
+            onValueChange={(on) => {
+              setWhole(on);
+              setCancelShipping(on);
+            }}
+          />
           <SwitchRow label="Cancel shipping" hint="Removes the shipping charge as well." value={cancelShipping} onValueChange={setCancelShipping} />
         </Section>
         {!whole ? (

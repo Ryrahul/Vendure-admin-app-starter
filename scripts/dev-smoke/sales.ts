@@ -20,6 +20,7 @@ import {
   SetDraftOrderShippingMethodDocument,
   UnsetDraftOrderBillingAddressDocument,
 } from '../../src/api/documents/draft-orders';
+import { maxRefundableQuantity, refundedQuantities } from '../../src/screens/orders/refundable';
 import {
   AddCustomersToGroupDocument,
   CreateCustomerGroupDocument,
@@ -277,6 +278,13 @@ const salesOrders: Suite = async (ctx) => {
   shop = await detail(run, shopId);
   const refundState = shop.payments?.[0].refunds[0]?.state;
   expect(refundState === 'Settled', `refund settled (${refundState})`);
+  // The refund screen's per-line maximum must exclude units already refunded.
+  const refunded = refundedQuantities(shop);
+  const refundedLine = shop.lines.find((l) => l.id === line.id)!;
+  const lineMax = maxRefundableQuantity(refundedLine, refunded);
+  expect(refunded[line.id] === 1 && lineMax === line.quantity - 1, `refund max excludes refunded units (${lineMax} of ${line.quantity})`);
+  const other = shop.lines.find((l) => l.id !== line.id);
+  if (other) expect(maxRefundableQuantity(other, refunded) === other.quantity, 'untouched line fully refundable');
 
   // 3. Shop order: cancel the Authorized payment, then cancel the whole order.
   const cancelId = await placeShopOrder(ctx, run);

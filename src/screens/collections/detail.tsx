@@ -55,8 +55,9 @@ export function CollectionDetailScreen({ id, parentId }: { id: string; parentId?
     <QueryBoundary query={query} pick={(d) => d.collection} noun="collection">
       {(collection) => (
         <CollectionForm
-          // Remount once the filter definitions arrive so AND/OR mapping applies to the initial state.
-          key={`${collection.updatedAt}|${defs.length}`}
+          // The initial filter state doesn't depend on the definitions (they only drive the editor
+          // UI and validation via props), so their arrival must not remount the form and drop edits.
+          key={collection.updatedAt}
           collection={collection}
           filterDefs={defs}
           refetch={() => void query.refetch()}

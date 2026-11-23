@@ -53,8 +53,18 @@ import {
   VariantListDocument,
   VariantProductDocument,
 } from '../../src/api/documents/variants';
-import { customFieldsInput, customFieldsFor, customFieldValues } from '../../src/api/custom-fields';
+import { customFieldsInput, customFieldsFor, customFieldValues, type CustomFieldDef } from '../../src/api/custom-fields';
 import { uploadAssets } from '../../src/api/upload';
+import {
+  childDrafts,
+  childValuesInput,
+  markSaved,
+  matchCreated,
+  nestedChildInput,
+  nestedCustomFieldUpdates,
+  type ChildDraft,
+} from '../../src/screens/facets/child-values-input';
+import { activeTranslation, editLanguage } from '../../src/screens/products/helpers';
 import type { TypedDocumentString } from '../../src/gql/graphql';
 import { expect, type SmokeContext } from '../smoke-lib';
 import type { Suite } from './index';
@@ -78,7 +88,7 @@ async function upload(ctx: SmokeContext, name: string, tags?: string[]) {
 const raw = <R = any>(query: string) => ({ toString: () => query }) as unknown as TypedDocumentString<R, any>;
 
 async function assets(ctx: SmokeContext) {
-  const { run, ok } = ctx;
+  const { run, ok, customFields } = ctx;
   const name = `${stamp()}.png`;
   const asset = await upload(ctx, name, ['smoke-tag']);
   try {
@@ -86,8 +96,25 @@ async function assets(ctx: SmokeContext) {
     expect(list.assets.items.some((a) => a.id === asset.id), 'uploaded asset is listed');
     const tags = await run(AssetTagsDocument, { options: { take: 100 } });
     expect(tags.tags.items.some((t) => t.value === 'smoke-tag'), 'tag created');
-    await run(UpdateAssetDocument, { input: { id: asset.id, name: `${name} edited`, tags: ['smoke-tag', 'smoke-tag-2'] } });
+    // Same input shape as the asset screen: root + translation custom fields, active translation only.
+    const before = (await run(AssetDetailDocument, { id: asset.id })).asset!;
+    const translation = activeTranslation(before);
+    expect(!!translation, 'asset translations selected');
+    const defs = customFieldsFor(customFields, 'Asset');
+    const cf = customFieldsInput(defs, customFieldValues(defs, before.customFields, translation));
+    await run(UpdateAssetDocument, {
+      input: {
+        id: asset.id,
+        name: `${name} edited`,
+        tags: ['smoke-tag', 'smoke-tag-2'],
+        customFields: cf.customFields,
+        translations: [
+          { id: translation!.id, languageCode: editLanguage(before), name: `${name} edited`, customFields: cf.translationCustomFields },
+        ],
+      },
+    });
     const detail = await run(AssetDetailDocument, { id: asset.id });
+    expect(detail.asset?.translations.length === before.translations.length, 'asset translation updated in place');
     expect(detail.asset?.name === `${name} edited`, 'asset renamed');
     expect(detail.asset?.tags.length === 2, 'asset tags updated');
     expect(detail.asset?.width === 1 && detail.asset.mimeType === 'image/png', 'asset metadata');
@@ -288,39 +315,86 @@ async function variants(ctx: SmokeContext) {
   ok('catalog variants', `${search.productVariants.totalItems} match "L"; create → price/stock/tax/cf → delete`);
 }
 
-async function optionGroups({ run, ok }: SmokeContext) {
+const newDraft = (key: string, name: string, cf: Record<string, unknown> = {}): ChildDraft => ({
+  key,
+  languageCode: 'en',
+  name,
+  code: '',
+  cf,
+  dirty: true,
+  codeTouched: false,
+});
+
+/**
+ * Custom fields on nested child inputs (CreateGroupOptionInput, CreateFacetValueWithFacetInput)
+ * fail GraphQL validation, so `nestedChildInput` must strip them and `nestedCustomFieldUpdates`
+ * must carry them. The dev server has no ProductOption/FacetValue custom fields, so this is
+ * checked offline with sample definitions.
+ */
+function checkNestedCustomFields() {
+  const def = (name: string, type: 'string' | 'localeString') =>
+    ({ name, type, list: false, readonly: false, nullable: true, label: name, requiresPermission: [] }) as CustomFieldDef;
+  const defs = [def('hex', 'string'), def('blurb', 'localeString')];
+  const { create } = childValuesInput([newDraft('k1', 'Red', { hex: '#f00', blurb: 'Hot' })], defs, 'en');
+  const nested = nestedChildInput(create[0].input);
+  expect(!('customFields' in nested) && nested.translations.every((t) => !('customFields' in t)), 'nested child input has no custom fields');
+  const [upd] = nestedCustomFieldUpdates(
+    matchCreated(create, [{ id: '9', code: 'red', translations: [{ id: '90', languageCode: 'en' }] }]),
+  );
+  expect(
+    upd?.id === '9' &&
+      (upd.customFields as { hex?: string } | undefined)?.hex === '#f00' &&
+      upd.translations[0].id === '90' &&
+      (upd.translations[0].customFields as { blurb?: string } | undefined)?.blurb === 'Hot',
+    'child custom fields follow as an update',
+  );
+}
+
+async function optionGroups({ run, ok, customFields }: SmokeContext) {
+  checkNestedCustomFields();
   const name = stamp();
   const code = slugify(name);
+  const defs = customFieldsFor(customFields, 'ProductOption');
   const list = await run(OptionGroupListDocument, { options: { take: 5 } });
+  // New group, as the screen does it: options nested, custom fields as follow-up updates.
+  const initial = childValuesInput([newDraft('n1', 'Small')], defs, 'en');
   const { createProductOptionGroup } = await run(CreateOptionGroupDocument, {
-    input: {
-      code,
-      translations: [{ languageCode: 'en', name }],
-      options: [{ code: 'small', translations: [{ languageCode: 'en', name: 'Small' }] }],
-    },
+    input: { code, translations: [{ languageCode: 'en', name }], options: initial.create.map((c) => nestedChildInput(c.input)) },
   });
   const id = createProductOptionGroup.id;
   try {
-    const opt = await run(CreateProductOptionDocument, {
-      input: { productOptionGroupId: id, code: 'large', translations: [{ languageCode: 'en', name: 'Large' }] },
-    });
+    const matched = matchCreated(initial.create, createProductOptionGroup.options);
+    expect(matched.length === 1, 'nested options matched to drafts');
+    for (const input of nestedCustomFieldUpdates(matched)) await run(UpdateProductOptionDocument, { input });
+
+    // Existing group: create a draft option, mark it saved, and check a retry wouldn't re-create it.
     let detail = (await run(OptionGroupDetailDocument, { id })).productOptionGroup!;
+    let drafts = [...childDrafts(detail.options, defs), newDraft('n2', 'Large')];
+    const step = childValuesInput(drafts, defs, 'en');
+    expect(step.create.length === 1 && step.update.length === 0, 'one option to create');
+    const opt = await run(CreateProductOptionDocument, { input: { ...step.create[0].input, productOptionGroupId: id } });
+    drafts = markSaved(drafts, [{ key: 'n2', saved: opt.createProductOption }]);
+    const retry = childValuesInput(drafts, defs, 'en');
+    expect(retry.create.length === 0 && retry.update.length === 0, 'saved option is not re-created on retry');
+
     const tr = detail.translations[0];
     await run(UpdateOptionGroupDocument, { input: { id, translations: [{ id: tr.id, languageCode: tr.languageCode, name: `${name} edited` }] } });
-    const small = detail.options.find((o) => o.code === 'small')!;
-    await run(UpdateProductOptionDocument, {
-      input: { id: small.id, code: 'sm', translations: [{ id: small.translations[0].id, languageCode: 'en', name: 'Smol' }] },
-    });
+    const small = drafts.find((d) => d.code === 'small')!;
+    drafts = drafts.map((d) => (d.key === small.key ? { ...d, name: 'Smol', code: 'sm', dirty: true } : d));
+    const edits = childValuesInput(drafts, defs, 'en');
+    for (const u of edits.update) await run(UpdateProductOptionDocument, { input: u.input });
+    expect(childValuesInput(markSaved(drafts, [], edits.update.map((u) => u.key)), defs, 'en').update.length === 0, 'updated option no longer dirty');
     const delOpt = await run(DeleteProductOptionDocument, { id: opt.createProductOption.id });
     expect(delOpt.deleteProductOption.result === 'DELETED', 'option deleted');
     detail = (await run(OptionGroupDetailDocument, { id })).productOptionGroup!;
     expect(detail.name === `${name} edited`, 'option group renamed');
     expect(detail.options.length === 1 && detail.options[0].code === 'sm' && detail.options[0].name === 'Smol', 'option updated');
+    expect(detail.options[0].translations.length === 1, 'option translation updated in place');
   } finally {
     const del = await run(DeleteOptionGroupDocument, { id });
     expect(del.deleteProductOptionGroup.result === 'DELETED', 'option group deleted');
   }
-  ok('catalog option groups', `${list.productOptionGroups.totalItems} listed; group + options CRUD`);
+  ok('catalog option groups', `${list.productOptionGroups.totalItems} listed; nested create, draft progress, options CRUD`);
 }
 
 async function collections({ run, ok, customFields }: SmokeContext) {
@@ -378,27 +452,35 @@ async function collections({ run, ok, customFields }: SmokeContext) {
   ok('catalog collections', `${top.collections.totalItems} top-level; create (child) → filters/cf → move → delete`);
 }
 
-async function facets({ run, ok }: SmokeContext) {
+async function facets({ run, ok, customFields }: SmokeContext) {
   const name = stamp();
+  const defs = customFieldsFor(customFields, 'FacetValue');
   const list = await run(FacetListDocument, { options: { take: 5 } });
+  const initial = childValuesInput([newDraft('n1', 'One')], defs, 'en');
   const { createFacet } = await run(CreateFacetDocument, {
     input: {
       code: slugify(name),
       isPrivate: false,
       translations: [{ languageCode: 'en', name }],
-      values: [{ code: 'one', translations: [{ languageCode: 'en', name: 'One' }] }],
+      values: initial.create.map((c) => nestedChildInput(c.input)),
     },
   });
   const id = createFacet.id;
   try {
-    const created = await run(CreateFacetValuesDocument, {
-      input: [{ facetId: id, code: 'two', translations: [{ languageCode: 'en', name: 'Two' }] }],
-    });
+    const matched = matchCreated(initial.create, createFacet.values);
+    expect(matched.length === 1, 'nested values matched to drafts');
+    const cfUpdates = nestedCustomFieldUpdates(matched);
+    if (cfUpdates.length) await run(UpdateFacetValuesDocument, { input: cfUpdates });
+
     let detail = (await run(FacetDetailDocument, { id })).facet!;
-    const one = detail.values.find((v) => v.code === 'one')!;
-    await run(UpdateFacetValuesDocument, {
-      input: [{ id: one.id, code: 'uno', translations: [{ id: one.translations[0].id, languageCode: 'en', name: 'Uno' }] }],
-    });
+    let drafts = [...childDrafts(detail.values, defs), newDraft('n2', 'Two')];
+    const step = childValuesInput(drafts, defs, 'en');
+    const created = await run(CreateFacetValuesDocument, { input: step.create.map((c) => ({ ...c.input, facetId: id })) });
+    drafts = markSaved(drafts, matchCreated(step.create, created.createFacetValues));
+    expect(childValuesInput(drafts, defs, 'en').create.length === 0, 'saved value is not re-created on retry');
+
+    drafts = drafts.map((d) => (d.code === 'one' ? { ...d, name: 'Uno', code: 'uno', dirty: true } : d));
+    await run(UpdateFacetValuesDocument, { input: childValuesInput(drafts, defs, 'en').update.map((u) => u.input) });
     const tr = detail.translations[0];
     await run(UpdateFacetDocument, {
       input: { id, isPrivate: true, translations: [{ id: tr.id, languageCode: tr.languageCode, name: `${name} edited` }] },
@@ -408,11 +490,12 @@ async function facets({ run, ok }: SmokeContext) {
     detail = (await run(FacetDetailDocument, { id })).facet!;
     expect(detail.name === `${name} edited` && detail.isPrivate, 'facet updated');
     expect(detail.values.length === 1 && detail.values[0].name === 'Uno', 'facet value updated');
+    expect(detail.values[0].translations.length === 1, 'facet value translation updated in place');
   } finally {
     const del = await run(DeleteFacetDocument, { id, force: false });
     expect(del.deleteFacet.result === 'DELETED', 'facet deleted');
   }
-  ok('catalog facets', `${list.facets.totalItems} listed; facet + values CRUD`);
+  ok('catalog facets', `${list.facets.totalItems} listed; nested create, draft progress, values CRUD`);
 }
 
 /** Dev-server write suites for this area group: name → suite. */

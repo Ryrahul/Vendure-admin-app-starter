@@ -35,7 +35,7 @@ export const ApiKeyDetailDocument = graphql(`
           description
         }
       }
-      translations {
+      translations @customFields(entity: "ApiKey", locale: true) {
         id
         languageCode
         name
