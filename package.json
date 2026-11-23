@@ -52,7 +52,7 @@
     "codegen": "graphql-codegen --config codegen.ts",
     "schema:pull": "node scripts/pull-schema.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/utils/format.test.ts",
+    "test": "tsx src/utils/format.test.ts && tsx src/api/custom-fields.test.ts",
     "smoke": "tsx scripts/smoke.ts"
   },
   "private": true

@@ -46,7 +46,8 @@ export const ProductDetailDocument = graphql(`
         id
         preview
       }
-      translations {
+      customFields @customFields(entity: "Product")
+      translations @customFields(entity: "Product", locale: true) {
         id
         languageCode
         name

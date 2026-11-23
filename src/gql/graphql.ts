@@ -4,10 +4,98 @@ import type { DocumentTypeDecoration } from '@graphql-typed-document-node/core';
 type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 /** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+export type AssetFilterParameter = {
+  _and?: Array<AssetFilterParameter> | null | undefined;
+  _or?: Array<AssetFilterParameter> | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  fileSize?: NumberOperators | null | undefined;
+  height?: NumberOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  languageCode?: StringOperators | null | undefined;
+  mimeType?: StringOperators | null | undefined;
+  name?: StringOperators | null | undefined;
+  preview?: StringOperators | null | undefined;
+  source?: StringOperators | null | undefined;
+  type?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+  width?: NumberOperators | null | undefined;
+};
+
+export type AssetListOptions = {
+  /** Allows the results to be filtered */
+  filter?: AssetFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: AssetSortParameter | null | undefined;
+  tags?: Array<string> | null | undefined;
+  tagsOperator?: LogicalOperator | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+};
+
+export type AssetSortParameter = {
+  createdAt?: SortOrder | null | undefined;
+  fileSize?: SortOrder | null | undefined;
+  height?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  mimeType?: SortOrder | null | undefined;
+  name?: SortOrder | null | undefined;
+  preview?: SortOrder | null | undefined;
+  source?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
+  width?: SortOrder | null | undefined;
+};
+
 /** Operators for filtering on a Boolean field */
 export type BooleanOperators = {
   eq?: boolean | null | undefined;
   isNull?: boolean | null | undefined;
+};
+
+export type CollectionFilterParameter = {
+  _and?: Array<CollectionFilterParameter> | null | undefined;
+  _or?: Array<CollectionFilterParameter> | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  description?: StringOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  inheritFilters?: BooleanOperators | null | undefined;
+  isPrivate?: BooleanOperators | null | undefined;
+  languageCode?: StringOperators | null | undefined;
+  name?: StringOperators | null | undefined;
+  parentId?: IdOperators | null | undefined;
+  position?: NumberOperators | null | undefined;
+  productVariantCount?: NumberOperators | null | undefined;
+  slug?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+};
+
+export type CollectionListOptions = {
+  /** Allows the results to be filtered */
+  filter?: CollectionFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: CollectionSortParameter | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+  topLevelOnly?: boolean | null | undefined;
+};
+
+export type CollectionSortParameter = {
+  createdAt?: SortOrder | null | undefined;
+  description?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  name?: SortOrder | null | undefined;
+  parentId?: SortOrder | null | undefined;
+  position?: SortOrder | null | undefined;
+  productVariantCount?: SortOrder | null | undefined;
+  slug?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
 };
 
 /**
@@ -332,6 +420,73 @@ export type CurrencyCode =
   /** Zimbabwean dollar */
   | 'ZWL';
 
+export type CustomerFilterParameter = {
+  _and?: Array<CustomerFilterParameter> | null | undefined;
+  _or?: Array<CustomerFilterParameter> | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  emailAddress?: StringOperators | null | undefined;
+  firstName?: StringOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  lastName?: StringOperators | null | undefined;
+  phoneNumber?: StringOperators | null | undefined;
+  postalCode?: StringOperators | null | undefined;
+  title?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+};
+
+export type CustomerGroupFilterParameter = {
+  _and?: Array<CustomerGroupFilterParameter> | null | undefined;
+  _or?: Array<CustomerGroupFilterParameter> | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  name?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+};
+
+export type CustomerGroupListOptions = {
+  /** Allows the results to be filtered */
+  filter?: CustomerGroupFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: CustomerGroupSortParameter | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+};
+
+export type CustomerGroupSortParameter = {
+  createdAt?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  name?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
+};
+
+export type CustomerListOptions = {
+  /** Allows the results to be filtered */
+  filter?: CustomerFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: CustomerSortParameter | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+};
+
+export type CustomerSortParameter = {
+  createdAt?: SortOrder | null | undefined;
+  emailAddress?: SortOrder | null | undefined;
+  firstName?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  lastName?: SortOrder | null | undefined;
+  phoneNumber?: SortOrder | null | undefined;
+  title?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
+};
+
 /** Operators for filtering on a DateTime field */
 export type DateOperators = {
   after?: string | null | undefined;
@@ -401,6 +556,40 @@ export type ErrorCode =
   | 'REFUND_STATE_TRANSITION_ERROR'
   | 'SETTLE_PAYMENT_ERROR'
   | 'UNKNOWN_ERROR';
+
+export type FacetValueFilterParameter = {
+  _and?: Array<FacetValueFilterParameter> | null | undefined;
+  _or?: Array<FacetValueFilterParameter> | null | undefined;
+  code?: StringOperators | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  facetId?: IdOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  languageCode?: StringOperators | null | undefined;
+  name?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+};
+
+export type FacetValueListOptions = {
+  /** Allows the results to be filtered */
+  filter?: FacetValueFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: FacetValueSortParameter | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+};
+
+export type FacetValueSortParameter = {
+  code?: SortOrder | null | undefined;
+  createdAt?: SortOrder | null | undefined;
+  facetId?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  name?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
+};
 
 /** Operators for filtering on an ID field */
 export type IdOperators = {
@@ -1128,6 +1317,57 @@ export type ProductTranslationInput = {
   slug?: string | null | undefined;
 };
 
+export type ProductVariantFilterParameter = {
+  _and?: Array<ProductVariantFilterParameter> | null | undefined;
+  _or?: Array<ProductVariantFilterParameter> | null | undefined;
+  createdAt?: DateOperators | null | undefined;
+  currencyCode?: StringOperators | null | undefined;
+  enabled?: BooleanOperators | null | undefined;
+  facetValueId?: IdOperators | null | undefined;
+  id?: IdOperators | null | undefined;
+  languageCode?: StringOperators | null | undefined;
+  name?: StringOperators | null | undefined;
+  outOfStockThreshold?: NumberOperators | null | undefined;
+  price?: NumberOperators | null | undefined;
+  priceWithTax?: NumberOperators | null | undefined;
+  productId?: IdOperators | null | undefined;
+  sku?: StringOperators | null | undefined;
+  stockAllocated?: NumberOperators | null | undefined;
+  stockLevel?: StringOperators | null | undefined;
+  stockOnHand?: NumberOperators | null | undefined;
+  trackInventory?: StringOperators | null | undefined;
+  updatedAt?: DateOperators | null | undefined;
+  useGlobalOutOfStockThreshold?: BooleanOperators | null | undefined;
+};
+
+export type ProductVariantListOptions = {
+  /** Allows the results to be filtered */
+  filter?: ProductVariantFilterParameter | null | undefined;
+  /** Specifies whether multiple top-level "filter" fields should be combined with a logical AND or OR operation. Defaults to AND. */
+  filterOperator?: LogicalOperator | null | undefined;
+  /** Skips the first n results, for use in pagination */
+  skip?: number | null | undefined;
+  /** Specifies which properties to sort the results by */
+  sort?: ProductVariantSortParameter | null | undefined;
+  /** Takes n results, for use in pagination */
+  take?: number | null | undefined;
+};
+
+export type ProductVariantSortParameter = {
+  createdAt?: SortOrder | null | undefined;
+  id?: SortOrder | null | undefined;
+  name?: SortOrder | null | undefined;
+  outOfStockThreshold?: SortOrder | null | undefined;
+  price?: SortOrder | null | undefined;
+  priceWithTax?: SortOrder | null | undefined;
+  productId?: SortOrder | null | undefined;
+  sku?: SortOrder | null | undefined;
+  stockAllocated?: SortOrder | null | undefined;
+  stockLevel?: SortOrder | null | undefined;
+  stockOnHand?: SortOrder | null | undefined;
+  updatedAt?: SortOrder | null | undefined;
+};
+
 export type SortOrder =
   | 'ASC'
   | 'DESC';
@@ -1223,7 +1463,7 @@ export type ProductDetailQueryVariables = Exact<{
 }>;
 
 
-export type ProductDetailQuery = { product: { id: string, name: string, slug: string, description: string, enabled: boolean, createdAt: string, updatedAt: string, languageCode: LanguageCode, featuredAsset: { id: string, preview: string } | null, assets: Array<{ id: string, preview: string }>, translations: Array<{ id: string, languageCode: LanguageCode, name: string }>, facetValues: Array<{ id: string, name: string, facet: { id: string, name: string } }>, variantList: { totalItems: number, items: Array<{ id: string, name: string, sku: string, enabled: boolean, price: number, priceWithTax: number, currencyCode: CurrencyCode, stockLevels: Array<{ id: string, stockOnHand: number, stockAllocated: number }> }> } } | null };
+export type ProductDetailQuery = { product: { id: string, name: string, slug: string, description: string, enabled: boolean, createdAt: string, updatedAt: string, languageCode: LanguageCode, customFields: unknown, featuredAsset: { id: string, preview: string } | null, assets: Array<{ id: string, preview: string }>, translations: Array<{ id: string, languageCode: LanguageCode, name: string }>, facetValues: Array<{ id: string, name: string, facet: { id: string, name: string } }>, variantList: { totalItems: number, items: Array<{ id: string, name: string, sku: string, enabled: boolean, price: number, priceWithTax: number, currencyCode: CurrencyCode, stockLevels: Array<{ id: string, stockOnHand: number, stockAllocated: number }> }> } } | null };
 
 export type UpdateProductMutationVariables = Exact<{
   input: UpdateProductInput;
@@ -1231,6 +1471,78 @@ export type UpdateProductMutationVariables = Exact<{
 
 
 export type UpdateProductMutation = { updateProduct: { id: string, name: string, enabled: boolean, updatedAt: string, translations: Array<{ id: string, languageCode: LanguageCode, name: string }> } };
+
+export type ServerConfigQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ServerConfigQuery = { globalSettings: { id: string, availableLanguages: Array<LanguageCode>, serverConfig: { moneyStrategyPrecision: number, permittedAssetTypes: Array<string>, permissions: Array<{ name: string, description: string, assignable: boolean }>, orderProcess: Array<{ name: string, to: Array<string> }>, entityCustomFields: Array<{ entityName: string, customFields: Array<
+          | { __typename: 'BooleanCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'DateTimeCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, datetimeMin: string | null, datetimeMax: string | null, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'FloatCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, floatMin: number | null, floatMax: number | null, floatStep: number | null, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'IntCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, intMin: number | null, intMax: number | null, intStep: number | null, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'LocaleStringCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, pattern: string | null, length: number | null, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'LocaleTextCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'RelationCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, entity: string, scalarFields: Array<string>, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+          | { __typename: 'StringCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, pattern: string | null, length: number | null, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null, options: Array<{ value: string, label: Array<{ languageCode: LanguageCode, value: string }> | null }> | null }
+          | { __typename: 'StructCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null, fields: Array<
+              | { name: string, type: string, list: boolean, label: Array<{ languageCode: LanguageCode, value: string }> | null }
+              | { name: string, type: string, list: boolean, label: Array<{ languageCode: LanguageCode, value: string }> | null }
+              | { name: string, type: string, list: boolean, label: Array<{ languageCode: LanguageCode, value: string }> | null }
+              | { name: string, type: string, list: boolean, label: Array<{ languageCode: LanguageCode, value: string }> | null }
+              | { name: string, type: string, list: boolean, label: Array<{ languageCode: LanguageCode, value: string }> | null }
+              | { name: string, type: string, list: boolean, label: Array<{ languageCode: LanguageCode, value: string }> | null }
+            > }
+          | { __typename: 'TextCustomFieldConfig', name: string, type: string, list: boolean, readonly: boolean | null, internal: boolean | null, nullable: boolean | null, requiresPermission: Array<Permission> | null, ui: unknown, label: Array<{ languageCode: LanguageCode, value: string }> | null, description: Array<{ languageCode: LanguageCode, value: string }> | null }
+        > }> } } };
+
+export type PickProductsQueryVariables = Exact<{
+  options?: ProductListOptions | null | undefined;
+}>;
+
+
+export type PickProductsQuery = { products: { totalItems: number, items: Array<{ id: string, name: string, slug: string, featuredAsset: { id: string, preview: string } | null }> } };
+
+export type PickVariantsQueryVariables = Exact<{
+  options?: ProductVariantListOptions | null | undefined;
+}>;
+
+
+export type PickVariantsQuery = { productVariants: { totalItems: number, items: Array<{ id: string, name: string, sku: string, priceWithTax: number, currencyCode: CurrencyCode, featuredAsset: { id: string, preview: string } | null, product: { id: string, featuredAsset: { id: string, preview: string } | null } }> } };
+
+export type PickCustomersQueryVariables = Exact<{
+  options?: CustomerListOptions | null | undefined;
+}>;
+
+
+export type PickCustomersQuery = { customers: { totalItems: number, items: Array<{ id: string, firstName: string, lastName: string, emailAddress: string }> } };
+
+export type PickFacetValuesQueryVariables = Exact<{
+  options?: FacetValueListOptions | null | undefined;
+}>;
+
+
+export type PickFacetValuesQuery = { facetValues: { totalItems: number, items: Array<{ id: string, name: string, code: string, facet: { id: string, name: string } }> } };
+
+export type PickCustomerGroupsQueryVariables = Exact<{
+  options?: CustomerGroupListOptions | null | undefined;
+}>;
+
+
+export type PickCustomerGroupsQuery = { customerGroups: { totalItems: number, items: Array<{ id: string, name: string }> } };
+
+export type PickCollectionsQueryVariables = Exact<{
+  options?: CollectionListOptions | null | undefined;
+}>;
+
+
+export type PickCollectionsQuery = { collections: { totalItems: number, items: Array<{ id: string, name: string, slug: string, breadcrumbs: Array<{ id: string, name: string }> }> } };
+
+export type PickAssetsQueryVariables = Exact<{
+  options?: AssetListOptions | null | undefined;
+}>;
+
+
+export type PickAssetsQuery = { assets: { totalItems: number, items: Array<{ id: string, name: string, preview: string }> } };
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -1558,7 +1870,8 @@ export const ProductDetailDocument = new TypedDocumentString(`
       id
       preview
     }
-    translations {
+    customFields @customFields(entity: "Product")
+    translations @customFields(entity: "Product", locale: true) {
       id
       languageCode
       name
@@ -1606,3 +1919,203 @@ export const UpdateProductDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<UpdateProductMutation, UpdateProductMutationVariables>;
+export const ServerConfigDocument = new TypedDocumentString(`
+    query ServerConfig {
+  globalSettings {
+    id
+    availableLanguages
+    serverConfig {
+      moneyStrategyPrecision
+      permittedAssetTypes
+      permissions {
+        name
+        description
+        assignable
+      }
+      orderProcess {
+        name
+        to
+      }
+      entityCustomFields {
+        entityName
+        customFields {
+          __typename
+          ... on CustomField {
+            name
+            type
+            list
+            readonly
+            internal
+            nullable
+            requiresPermission
+            ui
+            label {
+              languageCode
+              value
+            }
+            description {
+              languageCode
+              value
+            }
+          }
+          ... on StringCustomFieldConfig {
+            pattern
+            length
+            options {
+              value
+              label {
+                languageCode
+                value
+              }
+            }
+          }
+          ... on LocaleStringCustomFieldConfig {
+            pattern
+            length
+          }
+          ... on IntCustomFieldConfig {
+            intMin: min
+            intMax: max
+            intStep: step
+          }
+          ... on FloatCustomFieldConfig {
+            floatMin: min
+            floatMax: max
+            floatStep: step
+          }
+          ... on DateTimeCustomFieldConfig {
+            datetimeMin: min
+            datetimeMax: max
+          }
+          ... on RelationCustomFieldConfig {
+            entity
+            scalarFields
+          }
+          ... on StructCustomFieldConfig {
+            fields {
+              ... on StructField {
+                name
+                type
+                list
+                label {
+                  languageCode
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<ServerConfigQuery, ServerConfigQueryVariables>;
+export const PickProductsDocument = new TypedDocumentString(`
+    query PickProducts($options: ProductListOptions) {
+  products(options: $options) {
+    items {
+      id
+      name
+      slug
+      featuredAsset {
+        id
+        preview
+      }
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickProductsQuery, PickProductsQueryVariables>;
+export const PickVariantsDocument = new TypedDocumentString(`
+    query PickVariants($options: ProductVariantListOptions) {
+  productVariants(options: $options) {
+    items {
+      id
+      name
+      sku
+      priceWithTax
+      currencyCode
+      featuredAsset {
+        id
+        preview
+      }
+      product {
+        id
+        featuredAsset {
+          id
+          preview
+        }
+      }
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickVariantsQuery, PickVariantsQueryVariables>;
+export const PickCustomersDocument = new TypedDocumentString(`
+    query PickCustomers($options: CustomerListOptions) {
+  customers(options: $options) {
+    items {
+      id
+      firstName
+      lastName
+      emailAddress
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickCustomersQuery, PickCustomersQueryVariables>;
+export const PickFacetValuesDocument = new TypedDocumentString(`
+    query PickFacetValues($options: FacetValueListOptions) {
+  facetValues(options: $options) {
+    items {
+      id
+      name
+      code
+      facet {
+        id
+        name
+      }
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickFacetValuesQuery, PickFacetValuesQueryVariables>;
+export const PickCustomerGroupsDocument = new TypedDocumentString(`
+    query PickCustomerGroups($options: CustomerGroupListOptions) {
+  customerGroups(options: $options) {
+    items {
+      id
+      name
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickCustomerGroupsQuery, PickCustomerGroupsQueryVariables>;
+export const PickCollectionsDocument = new TypedDocumentString(`
+    query PickCollections($options: CollectionListOptions) {
+  collections(options: $options) {
+    items {
+      id
+      name
+      slug
+      breadcrumbs {
+        id
+        name
+      }
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickCollectionsQuery, PickCollectionsQueryVariables>;
+export const PickAssetsDocument = new TypedDocumentString(`
+    query PickAssets($options: AssetListOptions) {
+  assets(options: $options) {
+    items {
+      id
+      name
+      preview
+    }
+    totalItems
+  }
+}
+    `) as unknown as TypedDocumentString<PickAssetsQuery, PickAssetsQueryVariables>;

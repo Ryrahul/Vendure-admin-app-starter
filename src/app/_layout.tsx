@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 
 import { VendureApiError } from '@/api/client';
 import { SessionProvider, useSession } from '@/api/session';
+import { stackScreenOptions } from '@/components/stack-options';
 import { fontAssets, navigationTheme, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -50,6 +51,10 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={isLoggedIn}>
           <Stack.Screen name="(app)" />
+          <Stack.Screen
+            name="picker"
+            options={{ ...stackScreenOptions(theme), headerShown: true, headerLargeTitleEnabled: false, presentation: 'modal' }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={!isLoggedIn}>
           <Stack.Screen name="login" />

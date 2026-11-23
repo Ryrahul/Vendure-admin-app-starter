@@ -79,7 +79,7 @@ export function ProductListScreen() {
               subtitle={`${variants} variant${variants === 1 ? '' : 's'}`}
               value={variant ? formatMoney(variant.priceWithTax, variant.currencyCode, precision) : undefined}
               trailing={item.enabled ? undefined : <StatusBadge label="Disabled" tone="neutral" />}
-              onPress={() => router.push(`/products/${item.id}`)}
+              onPress={() => router.push(`/catalog/products/${item.id}`)}
             />
           </View>
         );

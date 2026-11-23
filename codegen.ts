@@ -10,7 +10,7 @@ import type { CodegenConfig } from '@graphql-codegen/cli';
  * - Output: src/gql/ (generated — do not edit). Run `npm run codegen`.
  */
 const config: CodegenConfig = {
-  schema: 'graphql/admin-schema.graphql',
+  schema: ['graphql/admin-schema.graphql', 'graphql/client-directives.graphql'],
   documents: ['src/**/*.{ts,tsx}', '!src/gql/**/*'],
   ignoreNoDocuments: true,
   generates: {
