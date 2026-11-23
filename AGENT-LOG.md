@@ -14,3 +14,8 @@
 [2026-11-23 20:15] assembleRelease OK 13m20s; dist/vendure-admin-starter-1.0.0.apk 104100751B sha256 81d7b4c4e3e925093648ca585074f9fd31fdb598f7634d237f7bd10f324a4dcd; bundle has default URL, no creds; pushed 05f9827 (README, icons)
 [2026-11-23 20:17] firebase project vendure-admin-starter-hyperce, app 1:231970696218:android:6ae5d20d42f581ead635a3, group testers=caulirahul6@gmail.com, release 1.0.0(1) distributed --groups testers
 [2026-11-23 20:18] PR #10 opened; sub-issues #2-#9 closed w/ comments; epic #1 summary; relay handoff rs_YGJ16ZK3Q9KQ; live ship msg to lv_Y9B1F5XJTAJ7
+[2026-11-23 22:05] v2 confirmed by Rahul in tmux; created Postgres db/role vendure_starter (one-time sudo -u postgres psql; creds ~/.config/vendure-app-starter/postgres.env 600); relay reply #36 (add to backups)
+[2026-11-23 22:06] branch feat/full-admin (stacked on feat/starter-app); dashboard sparse clone 3482d08 -> V2-SCOPE.md; epic #11, sub-issues #12-#18 (P0-P6)
+[2026-11-23 22:15] dev-server/ (Vendure 3.8.2, :3300, tmux vendure:dev-server) populated + 10 seeded orders + sample custom fields; Rahul #37 -> dynamic custom fields sub-issue #19, relay reply #38
+[2026-11-23 22:40] P0 foundations committed (custom-field runtime expansion verified on dev-server + Sastodeal read-only; form kit, pickers, op editor, 5 tabs); tax categories reference area + smoke:dev harness
+[2026-11-23 22:45] 4 parallel area agents launched (catalog, sales, settings-a, settings-b+marketing+system) in the same tree; orchestrator commits

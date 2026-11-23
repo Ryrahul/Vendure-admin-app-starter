@@ -2,6 +2,18 @@
 
 _Last updated: 2026-11-23_
 
+## v2 (in progress): full admin parity, branch `feat/full-admin`
+- Scope: `V2-SCOPE.md`. Epic #11, with sub-issues #12–#18 (P0–P6) and #19 (dynamic custom fields).
+- Local test server: `dev-server/`, Vendure 3.8.2 on 127.0.0.1:3300.
+  - **Postgres db/role `vendure_starter`**: creds in `~/.config/vendure-app-starter/postgres.env` (chmod 600). Please include it in backups.
+  - Runs in tmux window `vendure:dev-server`.
+- Done:
+  - P0 foundations.
+  - Runtime custom-field expansion, verified on dev-server and read-only on Sastodeal (15 entities with custom fields).
+  - Tax categories reference area.
+  - `npm run smoke:dev` write harness (localhost-only guard).
+- Running: catalog, sales, settings A/B, marketing and system areas (parallel agents).
+
 ## State: v1.0.0 shipped to testers (PR open, not merged)
 
 - [x] Lane setup: git + repo-local credential helper, relay live (gigs), expo plugin (project scope), vendure-docs MCP
