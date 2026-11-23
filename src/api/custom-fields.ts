@@ -215,10 +215,10 @@ export function customFieldsInput(defs: CustomFieldDef[], values: Record<string,
 export function customFieldValues(
   defs: CustomFieldDef[],
   customFields: unknown,
-  translation?: { customFields?: unknown } | null,
+  translation?: object | null,
 ): Record<string, unknown> {
   const base = (customFields ?? {}) as Record<string, unknown>;
-  const tr = (translation?.customFields ?? {}) as Record<string, unknown>;
+  const tr = ((translation as { customFields?: unknown } | null | undefined)?.customFields ?? {}) as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const def of defs) out[def.name] = isLocaleField(def) && def.name in tr ? tr[def.name] : base[def.name];
   return out;
