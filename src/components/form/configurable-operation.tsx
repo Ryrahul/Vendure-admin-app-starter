@@ -8,6 +8,12 @@
  */
 import { View } from 'react-native';
 
+import {
+  defaultOperation,
+  type ArgDef,
+  type ConfigurableOperationInput,
+  type OperationDefinition,
+} from '@/api/operations';
 import { openPicker, type PickerSource } from '@/api/picker';
 import { customerGroupPicker, facetValuePicker, productPicker, variantPicker } from '@/api/pickers/common';
 import { useChannelInfo } from '@/api/use-channel-info';
@@ -18,67 +24,13 @@ import { Text } from '@/components/text';
 import { useTheme } from '@/theme';
 import { stripHtml } from '@/utils/format';
 
-/** Same shape as the schema's `ConfigurableOperationInput`. */
-export interface ConfigurableOperationInput {
-  code: string;
-  arguments: { name: string; value: string }[];
-}
-
-/** Selection for definitions; spread into your query: `…{ code description args { …ConfigArgDef } }`. */
-export interface OperationDefinition {
-  code: string;
-  description: string;
-  args: {
-    name: string;
-    type: string;
-    list: boolean;
-    required: boolean;
-    defaultValue?: unknown;
-    label?: string | null;
-    description?: string | null;
-    ui?: unknown;
-  }[];
-}
-
-type ArgDef = OperationDefinition['args'][number];
-
-/** Converts a stored operation (`{ code, args }`) into the input shape (`{ code, arguments }`). */
-export function toOperationInput(op: { code: string; args: { name: string; value: string }[] }): ConfigurableOperationInput {
-  return { code: op.code, arguments: op.args.map((a) => ({ name: a.name, value: a.value })) };
-}
-
-/** A fresh operation with each argument's default value. */
-export function defaultOperation(def: OperationDefinition): ConfigurableOperationInput {
-  return {
-    code: def.code,
-    arguments: def.args.map((a) => ({
-      name: a.name,
-      value:
-        a.defaultValue == null
-          ? a.list
-            ? '[]'
-            : a.type === 'boolean'
-              ? 'false'
-              : ''
-          : typeof a.defaultValue === 'string'
-            ? a.defaultValue
-            : JSON.stringify(a.defaultValue),
-    })),
-  };
-}
-
-/** Missing required arguments, for validation before save. */
-export function missingArgs(op: ConfigurableOperationInput, defs: OperationDefinition[]): string[] {
-  const def = defs.find((d) => d.code === op.code);
-  if (!def) return [];
-  return def.args
-    .filter((a) => a.required)
-    .filter((a) => {
-      const v = op.arguments.find((x) => x.name === a.name)?.value ?? '';
-      return v === '' || v === '[]';
-    })
-    .map((a) => a.label ?? a.name);
-}
+export {
+  defaultOperation,
+  missingArgs,
+  toOperationInput,
+  type ConfigurableOperationInput,
+  type OperationDefinition,
+} from '@/api/operations';
 
 const label = (arg: ArgDef) => arg.label || humanizeArg(arg.name);
 const humanizeArg = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
@@ -86,7 +38,10 @@ const humanizeArg = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, '$1 $2'
 const ID_SOURCES: Record<string, { source: PickerSource; noun: string }> = {
   'facet-value-form-input': { source: facetValuePicker, noun: 'facet value' },
   'product-selector-form-input': { source: variantPicker, noun: 'variant' },
-  'customer-group-form-input': { source: customerGroupPicker, noun: 'customer group' },
+  'customer-group-form-input': {
+    source: customerGroupPicker,
+    noun: 'customer group',
+  },
 };
 
 function parseList(value: string): string[] {
@@ -98,11 +53,27 @@ function parseList(value: string): string[] {
   }
 }
 
-function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChange: (v: string) => void }) {
+function ArgInput({
+  arg,
+  value,
+  onChange: change,
+  readOnly,
+}: {
+  arg: ArgDef;
+  value: string;
+  onChange: (v: string) => void;
+  readOnly?: boolean;
+}) {
+  const onChange = (v: string) => {
+    if (!readOnly) change(v);
+  };
   const { currencyCode, precision } = useChannelInfo();
   const ui = (arg.ui ?? {}) as {
     component?: string;
-    options?: { value: string; label?: { languageCode: string; value: string }[] }[];
+    options?: {
+      value: string;
+      label?: { languageCode: string; value: string }[];
+    }[];
     selectionMode?: 'product' | 'variant';
     tab?: string;
   };
@@ -126,10 +97,15 @@ function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChan
         label={name}
         hint={hint}
         value={ids.length ? `${ids.length} ${idSource?.noun ?? 'item'}${ids.length === 1 ? '' : 's'}` : undefined}
-        disabled={!source}
+        disabled={!source || readOnly}
         onPress={async () => {
           if (!source) return;
-          const picked = await openPicker({ title: name, source, multiple: arg.list, selected: ids });
+          const picked = await openPicker({
+            title: name,
+            source,
+            multiple: arg.list,
+            selected: ids,
+          });
           if (!picked) return;
           onChange(arg.list ? JSON.stringify(picked.map((p) => p.id)) : (picked[0]?.id ?? ''));
         }}
@@ -141,10 +117,14 @@ function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChan
     return (
       <SelectRow
         label={name}
+        disabled={readOnly}
         hint={hint}
         value={value || null}
         allowEmpty={!arg.required}
-        options={ui.options.map((o) => ({ value: o.value, label: o.label?.[0]?.value ?? o.value }))}
+        options={ui.options.map((o) => ({
+          value: o.value,
+          label: o.label?.[0]?.value ?? o.value,
+        }))}
         onChange={(v) => onChange(v ?? '')}
       />
     );
@@ -154,6 +134,7 @@ function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChan
     return (
       <SelectRow
         label={name}
+        disabled={readOnly}
         hint={hint}
         value={value || 'AND'}
         options={[
@@ -170,6 +151,7 @@ function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChan
     return (
       <TextRow
         label={name}
+        readOnly={readOnly}
         hint={hint ?? 'One value per line'}
         multiline
         value={list.join('\n')}
@@ -180,12 +162,21 @@ function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChan
 
   switch (arg.type) {
     case 'boolean':
-      return <SwitchRow label={name} hint={hint} value={value === 'true'} onValueChange={(v) => onChange(String(v))} />;
+      return (
+        <SwitchRow
+          label={name}
+          hint={hint}
+          disabled={readOnly}
+          value={value === 'true'}
+          onValueChange={(v) => onChange(String(v))}
+        />
+      );
     case 'int':
       if (ui.component === 'currency-form-input') {
         return (
           <MoneyRow
             label={name}
+            readOnly={readOnly}
             hint={hint}
             currencyCode={currencyCode}
             precision={precision}
@@ -194,15 +185,41 @@ function ArgInput({ arg, value, onChange }: { arg: ArgDef; value: string; onChan
           />
         );
       }
-      return <NumberRow label={name} hint={hint} integer value={value === '' ? null : Number(value)} onChange={(v) => onChange(v == null ? '' : String(v))} />;
+      return (
+        <NumberRow
+          label={name}
+          hint={hint}
+          readOnly={readOnly}
+          integer
+          value={value === '' ? null : Number(value)}
+          onChange={(v) => onChange(v == null ? '' : String(v))}
+        />
+      );
     case 'float':
-      return <NumberRow label={name} hint={hint} value={value === '' ? null : Number(value)} onChange={(v) => onChange(v == null ? '' : String(v))} />;
+      return (
+        <NumberRow
+          label={name}
+          hint={hint}
+          readOnly={readOnly}
+          value={value === '' ? null : Number(value)}
+          onChange={(v) => onChange(v == null ? '' : String(v))}
+        />
+      );
     case 'datetime':
-      return <DateRow label={name} hint={hint} value={value || null} onChange={(v) => onChange(v ?? '')} />;
+      return (
+        <DateRow
+          label={name}
+          hint={hint}
+          readOnly={readOnly}
+          value={value || null}
+          onChange={(v) => onChange(v ?? '')}
+        />
+      );
     default:
       return (
         <TextRow
           label={name}
+          readOnly={readOnly}
           hint={hint}
           value={value}
           onChangeText={onChange}
@@ -219,15 +236,18 @@ export function OperationArgs({
   op,
   def,
   onChange,
+  readOnly,
 }: {
   op: ConfigurableOperationInput;
   def: OperationDefinition;
   onChange: (op: ConfigurableOperationInput) => void;
+  readOnly?: boolean;
 }) {
   return def.args.map((arg) => (
     <ArgInput
       key={arg.name}
       arg={arg}
+      readOnly={readOnly}
       value={op.arguments.find((a) => a.name === arg.name)?.value ?? ''}
       onChange={(v) => {
         const rest = op.arguments.filter((a) => a.name !== arg.name);
@@ -243,25 +263,31 @@ export function OperationEditor({
   definitions,
   value,
   onChange,
+  readOnly,
 }: {
   title: string;
   definitions: OperationDefinition[];
   value: ConfigurableOperationInput | null | undefined;
   onChange: (op: ConfigurableOperationInput) => void;
+  readOnly?: boolean;
 }) {
   const def = definitions.find((d) => d.code === value?.code);
   return (
     <Section title={title}>
       <SelectRow
         label="Type"
+        disabled={readOnly}
         value={value?.code ?? null}
-        options={definitions.map((d) => ({ value: d.code, label: stripHtml(d.description) || d.code }))}
+        options={definitions.map((d) => ({
+          value: d.code,
+          label: stripHtml(d.description) || d.code,
+        }))}
         onChange={(code) => {
           const next = definitions.find((d) => d.code === code);
           if (next) onChange(defaultOperation(next));
         }}
       />
-      {def && value ? <OperationArgs op={value} def={def} onChange={onChange} /> : null}
+      {def && value ? <OperationArgs op={value} def={def} onChange={onChange} readOnly={readOnly} /> : null}
     </Section>
   );
 }
@@ -273,12 +299,14 @@ export function OperationListEditor({
   definitions,
   value,
   onChange,
+  readOnly,
 }: {
   title: string;
   addLabel: string;
   definitions: OperationDefinition[];
   value: ConfigurableOperationInput[];
   onChange: (ops: ConfigurableOperationInput[]) => void;
+  readOnly?: boolean;
 }) {
   const { spacing } = useTheme();
   return (
@@ -295,33 +323,46 @@ export function OperationListEditor({
             key={`${op.code}-${index}`}
             title={def ? stripHtml(def.description) : op.code}
             action={
-              <Button
-                title="Remove"
-                size="sm"
-                variant="ghost"
-                onPress={() => onChange(value.filter((_, i) => i !== index))}
-              />
+              readOnly ? undefined : (
+                <Button
+                  title="Remove"
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => onChange(value.filter((_, i) => i !== index))}
+                />
+              )
             }>
             {def ? (
-              <OperationArgs op={op} def={def} onChange={(next) => onChange(value.map((o, i) => (i === index ? next : o)))} />
+              <OperationArgs
+                op={op}
+                def={def}
+                readOnly={readOnly}
+                onChange={(next) => onChange(value.map((o, i) => (i === index ? next : o)))}
+              />
             ) : (
               <TextRow label="Code" value={op.code} readOnly />
             )}
           </Section>
         );
       })}
-      <Button
-        title={addLabel}
-        variant="secondary"
-        onPress={async () => {
-          const picked = await openPicker({
-            title: addLabel,
-            options: definitions.map((d) => ({ id: d.code, title: stripHtml(d.description) || d.code, code: d.code })),
-          });
-          const def = picked?.[0] && definitions.find((d) => d.code === picked[0].id);
-          if (def) onChange([...value, defaultOperation(def)]);
-        }}
-      />
+      {readOnly ? null : (
+        <Button
+          title={addLabel}
+          variant="secondary"
+          onPress={async () => {
+            const picked = await openPicker({
+              title: addLabel,
+              options: definitions.map((d) => ({
+                id: d.code,
+                title: stripHtml(d.description) || d.code,
+                code: d.code,
+              })),
+            });
+            const def = picked?.[0] && definitions.find((d) => d.code === picked[0].id);
+            if (def) onChange([...value, defaultOperation(def)]);
+          }}
+        />
+      )}
     </View>
   );
 }
