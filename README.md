@@ -42,11 +42,11 @@ npm install
 npx expo start            # dev server; press "a" for Android (needs a dev build, see below)
 ```
 
-Sign in with any Vendure **administrator** account. The login screen is prefilled with a
-server URL (`src/constants.ts`); type any other Admin API URL to point the app elsewhere
-(`shop.example.com`, `https://shop.example.com` and `https://shop.example.com/admin-api` all work).
+Sign in with any Vendure **administrator** account. The server field starts empty; enter your
+Admin API URL (`shop.example.com`, `https://shop.example.com` and `https://shop.example.com/admin-api`
+all work). After a successful login the app remembers the last-used server.
 
-Override the prefilled server at build time:
+To prefill the server field in your own builds, set it at build time:
 
 ```bash
 EXPO_PUBLIC_VENDURE_ADMIN_API=https://your-host/admin-api npx expo start
