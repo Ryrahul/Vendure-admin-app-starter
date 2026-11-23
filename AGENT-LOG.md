@@ -11,3 +11,6 @@
 [2026-11-23 19:56] relay live re-joined after restart; ack sent to lv_EM1NV6SNAGPG
 [2026-11-23 19:59] pushed feat/starter-app f17f35c: all screens; tsc+lint clean; live smoke OK (1030 products 5/5 images, 522 placed orders, metricSummary, updateProduct enabled round-trip on #52 restored)
 [2026-11-23 20:01] prebuild android (buildTools 36.0.0, NDK 28.2 via plugins/with-android-ndk-version); starting assembleRelease
+[2026-11-23 20:15] assembleRelease OK 13m20s; dist/vendure-admin-starter-1.0.0.apk 104100751B sha256 81d7b4c4e3e925093648ca585074f9fd31fdb598f7634d237f7bd10f324a4dcd; bundle has default URL, no creds; pushed 05f9827 (README, icons)
+[2026-11-23 20:17] firebase project vendure-admin-starter-hyperce, app 1:231970696218:android:6ae5d20d42f581ead635a3, group testers=caulirahul6@gmail.com, release 1.0.0(1) distributed --groups testers
+[2026-11-23 20:18] PR #10 opened; sub-issues #2-#9 closed w/ comments; epic #1 summary; relay handoff rs_YGJ16ZK3Q9KQ; live ship msg to lv_Y9B1F5XJTAJ7
