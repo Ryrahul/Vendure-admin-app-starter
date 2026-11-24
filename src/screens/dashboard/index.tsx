@@ -46,7 +46,7 @@ export function DashboardScreen() {
     channel.refetch();
   };
 
-  if (metrics.isLoading && orders.isLoading) return <LoadingState label="Loading insights…" />;
+  if (metrics.isLoading && orders.isLoading) return <LoadingState variant="form" label="Loading insights…" />;
   if (!metrics.series && !orders.data && (metrics.error || orders.error)) {
     return <ErrorState error={metrics.error ?? orders.error} onRetry={onRefresh} />;
   }
@@ -56,7 +56,7 @@ export function DashboardScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: spacing[4], gap: spacing[6] }}
+      contentContainerStyle={{ padding: spacing[4], gap: spacing[6], paddingBottom: spacing[12] }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       {metrics.error || orders.error ? (
         <InlineError message={(metrics.error ?? orders.error)?.message ?? 'Refresh failed'} />
@@ -65,8 +65,11 @@ export function DashboardScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] }}>
         <MetricTile label="Orders today" value={String(orders.data?.today.totalItems ?? '—')} />
         <MetricTile label="Orders this month" value={String(orders.data?.month.totalItems ?? '—')} />
-        <MetricTile label="Revenue · 30 days" value={metrics.series ? money(summary.total) : '—'}
-          hint={`${summary.count}${metrics.approximate ? '+' : ''} orders`} />
+        <MetricTile
+          label="Revenue · 30 days"
+          value={metrics.series ? money(summary.total) : '—'}
+          hint={`${summary.count}${metrics.approximate ? '+' : ''} orders`}
+        />
         <MetricTile label="Avg. order value" value={metrics.series ? money(summary.aov) : '—'} hint="Last 30 days" />
       </View>
 

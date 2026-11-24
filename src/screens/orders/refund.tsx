@@ -68,7 +68,9 @@ function RefundForm({
     .map((l) => ({ line: l, max: maxRefundableQuantity(l, refunded) }))
     .filter((x) => x.max > 0);
   const itemsTotal = order.lines.reduce((sum, l) => sum + l.proratedUnitPriceWithTax * (quantities[l.id] ?? 0), 0);
-  const shippingTotal = order.shippingLines.filter((s) => shippingIds.includes(s.id)).reduce((sum, s) => sum + s.discountedPriceWithTax, 0);
+  const shippingTotal = order.shippingLines
+    .filter((s) => shippingIds.includes(s.id))
+    .reduce((sum, s) => sum + s.discountedPriceWithTax, 0);
   const base = cancelled ? cancelled.base : itemsTotal + shippingTotal;
   const total = base + adjustment;
   const payment = payments.find((p) => p.id === paymentId);
@@ -77,15 +79,20 @@ function RefundForm({
     .map(([orderLineId, quantity]) => ({ orderLineId, quantity }));
   // Only units still on the order can be cancelled (some may have been cancelled already).
   const cancelLines = lines
-    .map((l) => ({ ...l, quantity: Math.min(l.quantity, order.lines.find((x) => x.id === l.orderLineId)?.quantity ?? 0) }))
+    .map((l) => ({
+      ...l,
+      quantity: Math.min(l.quantity, order.lines.find((x) => x.id === l.orderLineId)?.quantity ?? 0),
+    }))
     .filter((l) => l.quantity > 0);
 
   const errors: string[] = [];
   for (const { line, max } of locked ? [] : refundableLines) {
-    if ((quantities[line.id] ?? 0) > max) errors.push(`Only ${max} of ${line.productVariant.name} can still be refunded.`);
+    if ((quantities[line.id] ?? 0) > max)
+      errors.push(`Only ${max} of ${line.productVariant.name} can still be refunded.`);
   }
   if (total < 0) errors.push('The refund total cannot be negative.');
-  if (payment && total > payment.refundable) errors.push(`The refund exceeds the refundable ${money(payment.refundable)} on this payment.`);
+  if (payment && total > payment.refundable)
+    errors.push(`The refund exceeds the refundable ${money(payment.refundable)} on this payment.`);
   const ready = !!payment && total > 0 && errors.length === 0 && !!reason.trim();
 
   const submit = async () => {
@@ -105,7 +112,12 @@ function RefundForm({
         unwrapResult(
           (
             await cancel.mutateAsync({
-              input: { orderId: order.id, lines: cancelLines, reason: reason.trim(), cancelShipping: shippingIds.length > 0 },
+              input: {
+                orderId: order.id,
+                lines: cancelLines,
+                reason: reason.trim(),
+                cancelShipping: shippingIds.length > 0,
+              },
             })
           ).cancelOrder,
         );
@@ -130,7 +142,10 @@ function RefundForm({
       if (justCancelled || locked) {
         onCancelled({ quantities, shippingIds, base, message });
         await invalidate(...ORDER_DOCS);
-        alertError(new Error(`The items were cancelled, but the refund failed: ${message}\nRetrying sends only the refund.`), 'Refund failed');
+        alertError(
+          new Error(`The items were cancelled, but the refund failed: ${message}\nRetrying sends only the refund.`),
+          'Refund failed',
+        );
       } else {
         await invalidate(...ORDER_DOCS);
         alertError(e, 'Could not refund');
@@ -142,7 +157,13 @@ function RefundForm({
 
   return (
     <>
-      <SaveHeader title={`Refund ${order.code}`} dirty={ready} saving={cancel.isPending || refund.isPending} onSave={submit} label="Refund…" />
+      <SaveHeader
+        title={`Refund ${order.code}`}
+        dirty={ready}
+        saving={cancel.isPending || refund.isPending}
+        onSave={submit}
+        label="Refund…"
+      />
       <FormScroll>
         {cancelled ? (
           <InlineError
@@ -161,7 +182,13 @@ function RefundForm({
               onChange={(q) => setQuantities((prev) => ({ ...prev, [l.id]: q }))}
             />
           ))}
-          <SwitchRow label="Cancel refunded items" hint="Removes them from the order and returns them to stock." value={locked || cancelItems} onValueChange={setCancelItems} disabled={locked} />
+          <SwitchRow
+            label="Cancel refunded items"
+            hint="Removes them from the order and returns them to stock."
+            value={locked || cancelItems}
+            onValueChange={setCancelItems}
+            disabled={locked}
+          />
         </Section>
         {order.shippingLines.length ? (
           <Section title="Shipping">
@@ -171,13 +198,14 @@ function RefundForm({
                 label={`${s.shippingMethod.name} · ${money(s.discountedPriceWithTax)}`}
                 value={shippingIds.includes(s.id)}
                 disabled={locked}
-                onValueChange={(on) => setShippingIds((prev) => (on ? [...prev, s.id] : prev.filter((x) => x !== s.id)))}
+                onValueChange={(on) =>
+                  setShippingIds((prev) => (on ? [...prev, s.id] : prev.filter((x) => x !== s.id)))
+                }
               />
             ))}
           </Section>
         ) : null}
         <Section title="Refund">
-          <MoneyRow label="Adjustment" hint="Added to (or, if negative, taken from) the refund." value={adjustment} onChange={setAdjustment} currencyCode={order.currencyCode} precision={precision} />
           <SelectRow
             label="Payment"
             value={paymentId}
@@ -185,6 +213,14 @@ function RefundForm({
             onChange={setPaymentId}
           />
           <TextRow label="Reason" value={reason} onChangeText={setReason} placeholder="Required" />
+          <MoneyRow
+            label="Adjustment"
+            hint="Added to (or, if negative, taken from) the refund."
+            value={adjustment}
+            onChange={setAdjustment}
+            currencyCode={order.currencyCode}
+            precision={precision}
+          />
           <ValueRow label="Refund total" value={money(total)} />
         </Section>
         {errors.length ? <InlineError message={errors.join('\n')} /> : null}

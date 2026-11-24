@@ -29,7 +29,9 @@ export interface AssetsValue {
 }
 
 /** Initial value from an entity's `assets` + `featuredAsset`. */
-export function assetsValue(entity?: { assets: EditableAsset[]; featuredAsset?: EditableAsset | null } | null): AssetsValue {
+export function assetsValue(
+  entity?: { assets: EditableAsset[]; featuredAsset?: EditableAsset | null } | null,
+): AssetsValue {
   const assets = [...(entity?.assets ?? [])];
   const featured = entity?.featuredAsset ?? null;
   if (featured && !assets.some((a) => a.id === featured.id)) assets.unshift(featured);
@@ -38,7 +40,10 @@ export function assetsValue(entity?: { assets: EditableAsset[]; featuredAsset?: 
 
 /** `assetIds` + `featuredAssetId` for an input. */
 export function assetsInput(value: AssetsValue) {
-  return { assetIds: value.assets.map((a) => a.id), featuredAssetId: value.featuredId ?? (value.assets[0]?.id || null) };
+  return {
+    assetIds: value.assets.map((a) => a.id),
+    featuredAssetId: value.featuredId ?? (value.assets[0]?.id || null),
+  };
 }
 
 export function AssetsEditor({
@@ -70,8 +75,19 @@ export function AssetsEditor({
     onChange({ assets: next, featuredId: featuredId === id ? (next[0]?.id ?? null) : featuredId });
   };
 
-  const control = (label: string, ios: Parameters<typeof Icon>[0]['ios'], android: Parameters<typeof Icon>[0]['android'], onPress: () => void, active?: boolean) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={6} onPress={onPress} style={{ padding: 2 }}>
+  const control = (
+    label: string,
+    ios: Parameters<typeof Icon>[0]['ios'],
+    android: Parameters<typeof Icon>[0]['android'],
+    onPress: () => void,
+    active?: boolean,
+  ) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      onPress={onPress}
+      style={{ padding: spacing[0.5] }}>
       <Icon ios={ios} android={android} size={16} color={active ? 'brand' : 'mutedForeground'} />
     </Pressable>
   );
@@ -79,14 +95,18 @@ export function AssetsEditor({
   return (
     <Section title={`${title} (${assets.length})`}>
       {assets.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing[3], padding: spacing[4] }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: spacing[3], padding: spacing[4] }}>
           {assets.map((a, i) => {
             const featured = a.id === featuredId;
             return (
               <View key={a.id} style={{ gap: spacing[1.5], alignItems: 'center' }}>
                 <View
                   style={{
-                    borderRadius: radius.lg + 2,
+                    // Thumbnail radius (lg) plus the 2px ring.
+                    borderRadius: radius.xl,
                     borderWidth: 2,
                     borderColor: featured ? colors.brand : 'transparent',
                   }}>
@@ -99,10 +119,22 @@ export function AssetsEditor({
                 ) : null}
                 {!readOnly ? (
                   <View style={{ flexDirection: 'row', gap: spacing[2] }}>
-                    {control('Set as featured', featured ? 'star.fill' : 'star', 'star', () => onChange({ assets, featuredId: a.id }), featured)}
-                    {i > 0 ? control('Move left', 'chevron.left', 'chevron_left', () => onChange({ assets: move(assets, i, -1), featuredId })) : null}
+                    {control(
+                      'Set as featured',
+                      featured ? 'star.fill' : 'star',
+                      'star',
+                      () => onChange({ assets, featuredId: a.id }),
+                      featured,
+                    )}
+                    {i > 0
+                      ? control('Move left', 'chevron.left', 'chevron_left', () =>
+                          onChange({ assets: move(assets, i, -1), featuredId }),
+                        )
+                      : null}
                     {i < assets.length - 1
-                      ? control('Move right', 'chevron.right', 'chevron_right', () => onChange({ assets: move(assets, i, 1), featuredId }))
+                      ? control('Move right', 'chevron.right', 'chevron_right', () =>
+                          onChange({ assets: move(assets, i, 1), featuredId }),
+                        )
                       : null}
                     {control('Remove asset', 'xmark', 'close', () => remove(a.id))}
                   </View>

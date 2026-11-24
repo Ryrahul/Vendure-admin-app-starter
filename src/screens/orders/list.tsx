@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
 
 import { CreateDraftOrderDocument } from '@/api/documents/draft-orders';
 import { OrderListDocument } from '@/api/documents/orders';
@@ -10,7 +10,7 @@ import { usePermissions } from '@/api/permissions';
 import { useChannelInfo } from '@/api/use-channel-info';
 import { InlineError } from '@/components/inline-error';
 import { OrderRow } from '@/components/order-row';
-import { HeaderIconButton } from '@/components/screen-kit';
+import { FilterChips, HeaderIconButton, LIST_TUNING } from '@/components/screen-kit';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SearchField } from '@/components/search-field';
 import { groupedRowStyle } from '@/components/section';
@@ -42,7 +42,13 @@ function buildVariables(filter: FilterKey, term: string, skip: number, take: num
         ? { active: { eq: false }, state: { notIn: ['Draft'] } }
         : { state: { eq: filter } };
   const search = term
-    ? { _or: [{ code: { contains: term } }, { customerLastName: { contains: term } }, { transactionId: { contains: term } }] }
+    ? {
+        _or: [
+          { code: { contains: term } },
+          { customerLastName: { contains: term } },
+          { transactionId: { contains: term } },
+        ],
+      }
     : {};
   return {
     options: {
@@ -56,7 +62,7 @@ function buildVariables(filter: FilterKey, term: string, skip: number, take: num
 
 export function OrderListScreen() {
   const theme = useTheme();
-  const { colors, radius, spacing } = theme;
+  const { colors, spacing } = theme;
   const { precision } = useChannelInfo();
   const [filter, setFilter] = useState<FilterKey>('placed');
   const [search, setSearch] = useState('');
@@ -86,30 +92,11 @@ export function OrderListScreen() {
   const header = (
     <View style={{ gap: spacing[3], paddingBottom: spacing[3] }}>
       <SearchField value={search} onChangeText={setSearch} placeholder="Search code, customer or transaction" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing[2] }}>
-        {FILTERS.map((f) => {
-          const selected = f.key === filter;
-          return (
-            <Pressable
-              key={f.key}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => setFilter(f.key)}
-              style={({ pressed }) => ({
-                paddingHorizontal: spacing[3],
-                paddingVertical: spacing[1.5],
-                borderRadius: radius.full,
-                borderWidth: 1,
-                borderColor: selected ? colors.primary : colors.border,
-                backgroundColor: selected ? colors.primary : pressed ? colors.accent : colors.surfaceRaised,
-              })}>
-              <Text variant="label" color={selected ? 'primaryForeground' : 'foreground'}>
-                {f.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <FilterChips
+        value={filter}
+        options={FILTERS.map((f) => ({ value: f.key, label: f.label }))}
+        onChange={setFilter}
+      />
       {list.error && list.items.length ? <InlineError message={list.error.message} /> : null}
       {list.data ? (
         <Text variant="caption" color="mutedForeground">
@@ -125,52 +112,63 @@ export function OrderListScreen() {
         <Stack.Screen
           options={{
             headerRight: () => (
-              <HeaderIconButton label="New draft order" ios="square.and.pencil" android="edit_square" onPress={() => void newDraft()} />
+              <HeaderIconButton
+                label="New draft order"
+                ios="square.and.pencil"
+                android="edit_square"
+                onPress={() => void newDraft()}
+              />
             ),
           }}
         />
       ) : null}
-    <FlatList
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardDismissMode="on-drag"
-      data={list.items}
-      keyExtractor={(o) => o.id}
-      ListHeaderComponent={header}
-      contentContainerStyle={{ padding: spacing[4], flexGrow: 1 }}
-      renderItem={({ item, index }) => (
-        <View style={groupedRowStyle(index, list.items.length, theme)}>
-          <OrderRow order={item} precision={precision} />
-        </View>
-      )}
-      onEndReachedThreshold={0.5}
-      onEndReached={() => {
-        if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
-      }}
-      refreshControl={
-        <RefreshControl refreshing={list.isRefetching && !list.isFetchingNextPage} onRefresh={() => void list.refetch()} />
-      }
-      ListEmptyComponent={
-        list.isLoading || (list.isFetching && !list.data) ? (
-          <LoadingState label="Loading orders…" />
-        ) : list.error ? (
-          <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-        ) : (
-          <EmptyState
-            title="No orders found"
-            message={term ? `Nothing matches “${term}”.` : 'Try another filter.'}
-            icon={{ ios: 'bag', android: 'shopping_bag' }}
-            actionTitle={term || filter !== 'all' ? 'Show all orders' : undefined}
-            onAction={() => {
-              setSearch('');
-              setFilter('all');
-            }}
+      <FlatList
+        {...LIST_TUNING}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardDismissMode="on-drag"
+        data={list.items}
+        keyExtractor={(o) => o.id}
+        ListHeaderComponent={header}
+        contentContainerStyle={{ padding: spacing[4], flexGrow: 1 }}
+        renderItem={({ item, index }) => (
+          <View style={groupedRowStyle(index, list.items.length, theme)}>
+            <OrderRow order={item} precision={precision} />
+          </View>
+        )}
+        onEndReachedThreshold={0.5}
+        onEndReached={() => {
+          if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={list.isRefetching && !list.isFetchingNextPage}
+            onRefresh={() => void list.refetch()}
           />
-        )
-      }
-      ListFooterComponent={
-        list.isFetchingNextPage ? <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} /> : undefined
-      }
-    />
+        }
+        ListEmptyComponent={
+          list.isLoading || (list.isFetching && !list.data) ? (
+            <LoadingState label="Loading orders…" />
+          ) : list.error ? (
+            <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+          ) : (
+            <EmptyState
+              title="No orders found"
+              message={term ? `Nothing matches “${term}”.` : 'Try another filter.'}
+              icon={{ ios: 'bag', android: 'shopping_bag' }}
+              actionTitle={term || filter !== 'all' ? 'Show all orders' : undefined}
+              onAction={() => {
+                setSearch('');
+                setFilter('all');
+              }}
+            />
+          )
+        }
+        ListFooterComponent={
+          list.isFetchingNextPage ? (
+            <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} />
+          ) : undefined
+        }
+      />
     </>
   );
 }

@@ -1,13 +1,17 @@
 /**
- * Customer detail (create when id === 'new'): profile + custom fields, account verification,
- * addresses, orders, groups, history with notes, delete.
+ * Customer detail (create when id === 'new'): general details, account verification, orders,
+ * addresses, groups, custom fields, history with notes, info, delete.
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
 import { customFieldsInput, customFieldValues } from '@/api/custom-fields';
-import { AddCustomersToGroupDocument, CustomerGroupMembersDocument, RemoveCustomersFromGroupDocument } from '@/api/documents/customer-groups';
+import {
+  AddCustomersToGroupDocument,
+  CustomerGroupMembersDocument,
+  RemoveCustomersFromGroupDocument,
+} from '@/api/documents/customer-groups';
 import {
   AddCustomerNoteDocument,
   CreateCustomerDocument,
@@ -53,12 +57,27 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   if (id === 'new') return <CustomerForm />;
   return (
     <QueryBoundary query={query} pick={(d) => d.customer} noun="customer">
-      {(customer) => <CustomerForm key={customer.updatedAt} customer={customer} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(customer) => (
+        <CustomerForm
+          key={customer.updatedAt}
+          customer={customer}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
 
-function CustomerForm({ customer, refetch, refreshing }: { customer?: Customer; refetch?: () => void; refreshing?: boolean }) {
+function CustomerForm({
+  customer,
+  refetch,
+  refreshing,
+}: {
+  customer?: Customer;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const defs = useCustomFields('Customer');
   const invalidate = useInvalidate();
@@ -119,10 +138,22 @@ function CustomerForm({ customer, refetch, refreshing }: { customer?: Customer; 
         hidden={!canEdit}
       />
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
-        <Section title="Profile">
-          <TextRow label="Title" value={title} onChangeText={edit(setTitle)} readOnly={!canEdit} placeholder="Mr, Ms, Dr…" />
-          <TextRow label="First name" value={firstName} onChangeText={edit(setFirstName)} readOnly={!canEdit} autoFocus={!customer} textContentType="givenName" />
-          <TextRow label="Last name" value={lastName} onChangeText={edit(setLastName)} readOnly={!canEdit} textContentType="familyName" />
+        <Section title="General">
+          <TextRow
+            label="First name"
+            value={firstName}
+            onChangeText={edit(setFirstName)}
+            readOnly={!canEdit}
+            autoFocus={!customer}
+            textContentType="givenName"
+          />
+          <TextRow
+            label="Last name"
+            value={lastName}
+            onChangeText={edit(setLastName)}
+            readOnly={!canEdit}
+            textContentType="familyName"
+          />
           <TextRow
             label="Email"
             value={emailAddress}
@@ -132,7 +163,20 @@ function CustomerForm({ customer, refetch, refreshing }: { customer?: Customer; 
             autoCapitalize="none"
             textContentType="emailAddress"
           />
-          <TextRow label="Phone" value={phoneNumber} onChangeText={edit(setPhoneNumber)} readOnly={!canEdit} keyboardType="phone-pad" />
+          <TextRow
+            label="Phone"
+            value={phoneNumber}
+            onChangeText={edit(setPhoneNumber)}
+            readOnly={!canEdit}
+            keyboardType="phone-pad"
+          />
+          <TextRow
+            label="Title"
+            value={title}
+            onChangeText={edit(setTitle)}
+            readOnly={!canEdit}
+            placeholder="Mr, Ms, Dr…"
+          />
           {!customer ? (
             <TextRow
               label="Password (optional)"
@@ -144,6 +188,14 @@ function CustomerForm({ customer, refetch, refreshing }: { customer?: Customer; 
             />
           ) : null}
         </Section>
+        {customer ? (
+          <>
+            <AccountSection customer={customer} canEdit={can('UpdateCustomer')} />
+            <OrdersSection customerId={customer.id} />
+            <AddressesSection customer={customer} canEdit={can('UpdateCustomer')} />
+            <GroupsSection customer={customer} canEdit={can('UpdateCustomerGroup')} />
+          </>
+        ) : null}
         <CustomFieldsSection
           defs={defs}
           values={cf}
@@ -155,10 +207,6 @@ function CustomerForm({ customer, refetch, refreshing }: { customer?: Customer; 
         />
         {customer ? (
           <>
-            <AccountSection customer={customer} canEdit={can('UpdateCustomer')} />
-            <AddressesSection customer={customer} canEdit={can('UpdateCustomer')} />
-            <OrdersSection customerId={customer.id} />
-            <GroupsSection customer={customer} canEdit={can('UpdateCustomerGroup')} />
             <CustomerHistory customerId={customer.id} canNote={can('UpdateCustomer')} />
             <Section title="Info">
               <ValueRow label="ID" value={customer.id} mono />
@@ -190,7 +238,13 @@ function AccountSection({ customer, canEdit }: { customer: Customer; canEdit: bo
     <Section title="Account">
       <ListRow
         title={user ? user.identifier : 'Guest'}
-        subtitle={user ? (user.lastLogin ? `Last login ${formatDate(user.lastLogin)}` : 'Never logged in') : 'No storefront account'}
+        subtitle={
+          user
+            ? user.lastLogin
+              ? `Last login ${formatDate(user.lastLogin)}`
+              : 'Never logged in'
+            : 'No storefront account'
+        }
         trailing={<CustomerStatusBadge user={user} />}
       />
       {user && !user.verified && canEdit ? (
@@ -209,9 +263,19 @@ function AccountSection({ customer, canEdit }: { customer: Customer; canEdit: bo
               size="sm"
               loading={verify.isPending}
               onPress={async () => {
-                if (!(await confirm({ title: 'Verify account?', message: `${customer.emailAddress} will be able to log in.`, confirmLabel: 'Verify' }))) return;
+                if (
+                  !(await confirm({
+                    title: 'Verify account?',
+                    message: `${customer.emailAddress} will be able to log in.`,
+                    confirmLabel: 'Verify',
+                  }))
+                )
+                  return;
                 try {
-                  unwrapResult((await verify.mutateAsync({ id: customer.id, password: password || undefined })).verifyCustomerAccount);
+                  unwrapResult(
+                    (await verify.mutateAsync({ id: customer.id, password: password || undefined }))
+                      .verifyCustomerAccount,
+                  );
                   await invalidate(CustomerDetailDocument, CustomerListDocument, CustomerHistoryDocument);
                 } catch (e) {
                   alertError(e, 'Could not verify');
@@ -248,7 +312,9 @@ function AddressesSection({ customer, canEdit }: { customer: Customer; canEdit: 
               </View>
             ) : undefined
           }
-          onPress={() => router.push({ pathname: '/customers/address/[id]', params: { id: a.id, customerId: customer.id } })}
+          onPress={() =>
+            router.push({ pathname: '/customers/address/[id]', params: { id: a.id, customerId: customer.id } })
+          }
         />
       ))}
       {canEdit ? (
@@ -257,7 +323,9 @@ function AddressesSection({ customer, canEdit }: { customer: Customer; canEdit: 
             title="Add address"
             size="sm"
             variant="secondary"
-            onPress={() => router.push({ pathname: '/customers/address/[id]', params: { id: 'new', customerId: customer.id } })}
+            onPress={() =>
+              router.push({ pathname: '/customers/address/[id]', params: { id: 'new', customerId: customer.id } })
+            }
           />
         </ActionBar>
       ) : null}
@@ -321,7 +389,10 @@ function GroupsSection({ customer, canEdit }: { customer: Customer; canEdit: boo
                 size="sm"
                 variant="ghost"
                 onPress={async () => {
-                  if (!(await confirm({ title: `Remove from “${g.name}”?`, confirmLabel: 'Remove', destructive: true }))) return;
+                  if (
+                    !(await confirm({ title: `Remove from “${g.name}”?`, confirmLabel: 'Remove', destructive: true }))
+                  )
+                    return;
                   try {
                     await remove.mutateAsync({ customerGroupId: g.id, customerIds: [customer.id] });
                     await refresh();
@@ -368,7 +439,8 @@ function GroupsSection({ customer, canEdit }: { customer: Customer; canEdit: boo
               setBusy(true);
               try {
                 for (const g of added) await add.mutateAsync({ customerGroupId: g.id, customerIds: [customer.id] });
-                for (const g of removed) await remove.mutateAsync({ customerGroupId: g.id, customerIds: [customer.id] });
+                for (const g of removed)
+                  await remove.mutateAsync({ customerGroupId: g.id, customerIds: [customer.id] });
                 await refresh();
               } catch (e) {
                 await refresh();
@@ -386,7 +458,10 @@ function GroupsSection({ customer, canEdit }: { customer: Customer; canEdit: boo
 
 function CustomerHistory({ customerId, canNote }: { customerId: string; canNote: boolean }) {
   const [take, setTake] = useState(50);
-  const history = useVendureQuery(CustomerHistoryDocument, { id: customerId, options: { take, sort: { createdAt: 'DESC' as const } } });
+  const history = useVendureQuery(CustomerHistoryDocument, {
+    id: customerId,
+    options: { take, sort: { createdAt: 'DESC' as const } },
+  });
   const invalidate = useInvalidate();
   const add = useVendureMutation(AddCustomerNoteDocument);
   const update = useVendureMutation(UpdateCustomerNoteDocument);

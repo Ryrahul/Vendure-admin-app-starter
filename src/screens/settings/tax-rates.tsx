@@ -4,6 +4,7 @@
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { View } from 'react-native';
 
 import { customFieldsInput, customFieldValues } from '@/api/custom-fields';
 import {
@@ -27,6 +28,7 @@ import { DeleteSection, EntityListScreen, FormScroll, QueryBoundary, SaveHeader 
 import { Section } from '@/components/section';
 import { StatusBadge } from '@/components/status-badge';
 import type { TaxRateDetailQuery } from '@/gql/graphql';
+import { useTheme } from '@/theme';
 import { alertError } from '@/utils/confirm';
 import { formatDate } from '@/utils/format';
 
@@ -38,7 +40,12 @@ export function TaxRateListScreen() {
     <EntityListScreen
       document={TaxRateListDocument}
       variables={(term, skip, take) => ({
-        options: { skip, take, sort: { name: 'ASC' as const }, ...(term ? { filter: { name: { contains: term } } } : {}) },
+        options: {
+          skip,
+          take,
+          sort: { name: 'ASC' as const },
+          ...(term ? { filter: { name: { contains: term } } } : {}),
+        },
       })}
       select={(r) => r.taxRates}
       noun={['tax rate', 'tax rates']}
@@ -61,12 +68,20 @@ export function TaxRateDetailScreen({ id }: { id: string }) {
   if (id === 'new') return <TaxRateForm />;
   return (
     <QueryBoundary query={query} pick={(d) => d.taxRate} noun="tax rate">
-      {(rate) => <TaxRateForm key={rate.updatedAt} rate={rate} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(rate) => (
+        <TaxRateForm
+          key={rate.updatedAt}
+          rate={rate}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
 
 function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: () => void; refreshing?: boolean }) {
+  const { spacing } = useTheme();
   const { can } = usePermissions();
   const defs = useCustomFields('TaxRate');
   const options = useVendureQuery(TaxRateOptionsDocument, undefined, { staleTime: 60_000 });
@@ -83,10 +98,12 @@ function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: 
   const [group, setGroup] = useState<{ id: string; name: string } | null>(rate?.customerGroup ?? null);
   const [cf, setCf] = useState(() => customFieldValues(defs, rate?.customFields));
   const [dirty, setDirty] = useState(false);
-  const edit = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setDirty(true);
-  };
+  const edit =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setDirty(true);
+    };
 
   const canEdit = rate ? can('UpdateSettings', 'UpdateTaxRate') : canCreate(can);
   const saving = create.isPending || update.isPending;
@@ -97,7 +114,8 @@ function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: 
     if (value == null) problems.push('Enter the rate value.');
     if (!categoryId) problems.push('Choose a tax category.');
     if (!zoneId) problems.push('Choose a zone.');
-    if (problems.length || value == null || !categoryId || !zoneId) return alertError(new Error(problems.join('\n')), 'Check the form');
+    if (problems.length || value == null || !categoryId || !zoneId)
+      return alertError(new Error(problems.join('\n')), 'Check the form');
     const { customFields } = customFieldsInput(defs, cf);
     const base = { name: name.trim(), enabled, value, categoryId, zoneId, customFields };
     try {
@@ -152,7 +170,11 @@ function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: 
             // allow changing it, but only pick-to-replace.
             <LinkRow
               label="Customer group"
-              hint={group ? 'Can be changed but not removed (Vendure keeps the group on update).' : 'Optional. Limits the rate to customers in this group.'}
+              hint={
+                group
+                  ? 'Can be changed but not removed (Vendure keeps the group on update).'
+                  : 'Optional. Limits the rate to customers in this group.'
+              }
               value={group?.name}
               disabled={!canEdit}
               onPress={async () => {
@@ -163,7 +185,11 @@ function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: 
           ) : (
             <LinkRow
               label="Customer group"
-              hint={group ? 'Tap to change. Use “Clear group” to apply the rate to everyone.' : 'Optional. Limits the rate to customers in this group.'}
+              hint={
+                group
+                  ? 'Tap to change. Use “Clear group” to apply the rate to everyone.'
+                  : 'Optional. Limits the rate to customers in this group.'
+              }
               value={group?.name}
               disabled={!canEdit}
               onPress={async () => {
@@ -172,7 +198,11 @@ function TaxRateForm({ rate, refetch, refreshing }: { rate?: TaxRate; refetch?: 
               }}
             />
           )}
-          {!rate && group && canEdit ? <Button title="Clear group" variant="ghost" onPress={() => edit(setGroup)(null)} /> : null}
+          {!rate && group && canEdit ? (
+            <View style={{ padding: spacing[3] }}>
+              <Button title="Clear group" variant="ghost" onPress={() => edit(setGroup)(null)} />
+            </View>
+          ) : null}
         </Section>
         <CustomFieldsSection
           defs={defs}

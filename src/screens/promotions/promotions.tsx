@@ -27,7 +27,14 @@ import {
 import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-fields-section';
 import { DateRow, NumberRow, SwitchRow, TextRow, ValueRow } from '@/components/form/fields';
 import { InlineError } from '@/components/inline-error';
-import { DeleteSection, EntityListScreen, FilterChips, FormScroll, QueryBoundary, SaveHeader } from '@/components/screen-kit';
+import {
+  DeleteSection,
+  EntityListScreen,
+  FilterChips,
+  FormScroll,
+  QueryBoundary,
+  SaveHeader,
+} from '@/components/screen-kit';
 import { Section } from '@/components/section';
 import { StatusBadge } from '@/components/status-badge';
 import type { LanguageCode, PromotionDetailQuery } from '@/gql/graphql';
@@ -40,7 +47,11 @@ const canCreate = (can: (...p: string[]) => boolean) => can('CreatePromotion');
 type EnabledFilter = 'all' | 'enabled' | 'disabled';
 
 /** Status of a promotion's date window right now. */
-function windowStatus(p: { enabled: boolean; startsAt?: string | null; endsAt?: string | null }): { label: string; tone: StatusTone } | null {
+function windowStatus(p: {
+  enabled: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+}): { label: string; tone: StatusTone } | null {
   if (!p.enabled) return { label: 'Disabled', tone: 'neutral' };
   const now = Date.now();
   if (p.startsAt && new Date(p.startsAt).getTime() > now) return { label: 'Scheduled', tone: 'info' };
@@ -121,7 +132,15 @@ export function PromotionDetailScreen({ id }: { id: string }) {
   );
 }
 
-function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promotion; refetch?: () => void; refreshing?: boolean }) {
+function PromotionForm({
+  promotion,
+  refetch,
+  refreshing,
+}: {
+  promotion?: Promotion;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const { channel } = useChannelInfo();
   const defs = useCustomFields('Promotion');
@@ -139,20 +158,28 @@ function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promoti
   const [description, setDescription] = useState(translation?.description ?? promotion?.description ?? '');
   const [enabled, setEnabled] = useState(promotion?.enabled ?? true);
   const [couponCode, setCouponCode] = useState(promotion?.couponCode ?? '');
-  const [perCustomerUsageLimit, setPerCustomerUsageLimit] = useState<number | null>(promotion?.perCustomerUsageLimit ?? null);
+  const [perCustomerUsageLimit, setPerCustomerUsageLimit] = useState<number | null>(
+    promotion?.perCustomerUsageLimit ?? null,
+  );
   const [usageLimit, setUsageLimit] = useState<number | null>(promotion?.usageLimit ?? null);
   const [startsAt, setStartsAt] = useState<string | null>(promotion?.startsAt ?? null);
   const [endsAt, setEndsAt] = useState<string | null>(promotion?.endsAt ?? null);
-  const [conditions, setConditions] = useState<ConfigurableOperationInput[]>(() => (promotion?.conditions ?? []).map(toOperationInput));
-  const [actions, setActions] = useState<ConfigurableOperationInput[]>(() => (promotion?.actions ?? []).map(toOperationInput));
+  const [conditions, setConditions] = useState<ConfigurableOperationInput[]>(() =>
+    (promotion?.conditions ?? []).map(toOperationInput),
+  );
+  const [actions, setActions] = useState<ConfigurableOperationInput[]>(() =>
+    (promotion?.actions ?? []).map(toOperationInput),
+  );
   const [cf, setCf] = useState(() =>
     customFieldValues(defs, promotion?.customFields, translation as { customFields?: unknown } | undefined),
   );
   const [dirty, setDirty] = useState(false);
-  const edit = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setDirty(true);
-  };
+  const edit =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setDirty(true);
+    };
 
   const conditionDefs = ops.data?.promotionConditions ?? [];
   const actionDefs = ops.data?.promotionActions ?? [];
@@ -164,11 +191,14 @@ function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promoti
     if (!name.trim()) problems.push('Name is required.');
     if (!actions.length) problems.push('Add at least one action.');
     if (!conditions.length && !couponCode.trim()) problems.push('Add a condition or a coupon code.');
-    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) problems.push('The end date must be after the start date.');
+    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt))
+      problems.push('The end date must be after the start date.');
     const label = (op: ConfigurableOperationInput, list: typeof conditionDefs) =>
       stripHtml(list.find((d) => d.code === op.code)?.description) || op.code;
-    for (const op of conditions) for (const a of missingArgs(op, conditionDefs)) problems.push(`${label(op, conditionDefs)}: “${a}” is required.`);
-    for (const op of actions) for (const a of missingArgs(op, actionDefs)) problems.push(`${label(op, actionDefs)}: “${a}” is required.`);
+    for (const op of conditions)
+      for (const a of missingArgs(op, conditionDefs)) problems.push(`${label(op, conditionDefs)}: “${a}” is required.`);
+    for (const op of actions)
+      for (const a of missingArgs(op, actionDefs)) problems.push(`${label(op, actionDefs)}: “${a}” is required.`);
     if (problems.length) return alertError(new Error(problems.join('\n')), 'Check the form');
 
     const { customFields, translationCustomFields } = customFieldsInput(defs, cf);
@@ -219,7 +249,14 @@ function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promoti
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
         {ops.error ? <InlineError message={ops.error.message} /> : null}
         <Section title="General">
-          <TextRow label={`Name (${languageCode})`} value={name} onChangeText={edit(setName)} readOnly={!canEdit} autoFocus={!promotion} />
+          <TextRow
+            label={`Name (${languageCode})`}
+            value={name}
+            onChangeText={edit(setName)}
+            readOnly={!canEdit}
+            autoFocus={!promotion}
+          />
+          <SwitchRow label="Enabled" value={enabled} disabled={!canEdit} onValueChange={edit(setEnabled)} />
           <TextRow
             label={`Description (${languageCode})`}
             value={description}
@@ -227,29 +264,6 @@ function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promoti
             readOnly={!canEdit}
             multiline
           />
-          <SwitchRow label="Enabled" value={enabled} disabled={!canEdit} onValueChange={edit(setEnabled)} />
-        </Section>
-        <Section title="Availability" footer="Leave the limits empty for unlimited use.">
-          <TextRow
-            label="Coupon code"
-            hint="Optional. Customers must enter it to get the promotion."
-            value={couponCode}
-            onChangeText={edit(setCouponCode)}
-            readOnly={!canEdit}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            mono
-          />
-          <NumberRow
-            label="Per-customer usage limit"
-            integer
-            value={perCustomerUsageLimit}
-            onChange={edit(setPerCustomerUsageLimit)}
-            readOnly={!canEdit}
-          />
-          <NumberRow label="Usage limit" hint="Total uses across all customers." integer value={usageLimit} onChange={edit(setUsageLimit)} readOnly={!canEdit} />
-          <DateRow label="Starts at" value={startsAt} onChange={edit(setStartsAt)} readOnly={!canEdit} />
-          <DateRow label="Ends at" value={endsAt} onChange={edit(setEndsAt)} readOnly={!canEdit} />
         </Section>
         <OperationListEditor
           title="Conditions"
@@ -267,6 +281,35 @@ function PromotionForm({ promotion, refetch, refreshing }: { promotion?: Promoti
           onChange={edit(setActions)}
           readOnly={!canEdit}
         />
+        <Section title="Availability" footer="Leave the limits empty for unlimited use.">
+          <DateRow label="Starts at" value={startsAt} onChange={edit(setStartsAt)} readOnly={!canEdit} />
+          <DateRow label="Ends at" value={endsAt} onChange={edit(setEndsAt)} readOnly={!canEdit} />
+          <TextRow
+            label="Coupon code"
+            hint="Optional. Customers must enter it to get the promotion."
+            value={couponCode}
+            onChangeText={edit(setCouponCode)}
+            readOnly={!canEdit}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            mono
+          />
+          <NumberRow
+            label="Per-customer usage limit"
+            integer
+            value={perCustomerUsageLimit}
+            onChange={edit(setPerCustomerUsageLimit)}
+            readOnly={!canEdit}
+          />
+          <NumberRow
+            label="Usage limit"
+            hint="Total uses across all customers."
+            integer
+            value={usageLimit}
+            onChange={edit(setUsageLimit)}
+            readOnly={!canEdit}
+          />
+        </Section>
         <CustomFieldsSection
           defs={defs}
           values={cf}

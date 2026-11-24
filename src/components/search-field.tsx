@@ -43,7 +43,12 @@ export function SearchField({
       />
       {/* iOS has its own clear button (clearButtonMode); Android needs one. */}
       {value && Platform.OS !== 'ios' ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} onPress={() => onChangeText('')}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+          hitSlop={8}
+          onPress={() => onChangeText('')}
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
           <Icon ios="xmark.circle.fill" android="close" size={16} />
         </Pressable>
       ) : null}

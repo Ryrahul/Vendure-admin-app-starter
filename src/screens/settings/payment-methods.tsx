@@ -3,6 +3,7 @@
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { View } from 'react-native';
 
 import { customFieldsInput, customFieldValues } from '@/api/custom-fields';
 import {
@@ -32,6 +33,7 @@ import { DeleteSection, EntityListScreen, FormScroll, QueryBoundary, SaveHeader 
 import { Section } from '@/components/section';
 import { StatusBadge } from '@/components/status-badge';
 import type { LanguageCode, PaymentMethodDetailQuery } from '@/gql/graphql';
+import { useTheme } from '@/theme';
 import { alertError } from '@/utils/confirm';
 import { formatDate } from '@/utils/format';
 
@@ -47,7 +49,9 @@ export function PaymentMethodListScreen() {
           skip,
           take,
           sort: { name: 'ASC' as const },
-          ...(term ? { filter: { name: { contains: term }, code: { contains: term } }, filterOperator: 'OR' as const } : {}),
+          ...(term
+            ? { filter: { name: { contains: term }, code: { contains: term } }, filterOperator: 'OR' as const }
+            : {}),
         },
       })}
       select={(r) => r.paymentMethods}
@@ -72,13 +76,27 @@ export function PaymentMethodDetailScreen({ id }: { id: string }) {
   return (
     <QueryBoundary query={query} pick={(d) => d.paymentMethod} noun="payment method">
       {(method) => (
-        <PaymentMethodForm key={method.updatedAt} method={method} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <PaymentMethodForm
+          key={method.updatedAt}
+          method={method}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
 }
 
-function PaymentMethodForm({ method, refetch, refreshing }: { method?: PaymentMethod; refetch?: () => void; refreshing?: boolean }) {
+function PaymentMethodForm({
+  method,
+  refetch,
+  refreshing,
+}: {
+  method?: PaymentMethod;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
+  const { spacing } = useTheme();
   const { can } = usePermissions();
   const { channel } = useChannelInfo();
   const defs = useCustomFields('PaymentMethod');
@@ -96,16 +114,22 @@ function PaymentMethodForm({ method, refetch, refreshing }: { method?: PaymentMe
   const [name, setName] = useState(translation?.name ?? method?.name ?? '');
   const [description, setDescription] = useState(translation?.description ?? method?.description ?? '');
   const [enabled, setEnabled] = useState(method?.enabled ?? true);
-  const [handler, setHandler] = useState<ConfigurableOperationInput | null>(method ? toOperationInput(method.handler) : null);
+  const [handler, setHandler] = useState<ConfigurableOperationInput | null>(
+    method ? toOperationInput(method.handler) : null,
+  );
   const [checker, setChecker] = useState<ConfigurableOperationInput | null>(
     method?.checker ? toOperationInput(method.checker) : null,
   );
-  const [cf, setCf] = useState(() => customFieldValues(defs, method?.customFields, translation as { customFields?: unknown } | undefined));
+  const [cf, setCf] = useState(() =>
+    customFieldValues(defs, method?.customFields, translation as { customFields?: unknown } | undefined),
+  );
   const [dirty, setDirty] = useState(false);
-  const edit = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setDirty(true);
-  };
+  const edit =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setDirty(true);
+    };
 
   const handlers = ops.data?.paymentMethodHandlers ?? [];
   const checkers = ops.data?.paymentMethodEligibilityCheckers ?? [];
@@ -162,7 +186,13 @@ function PaymentMethodForm({ method, refetch, refreshing }: { method?: PaymentMe
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
         {ops.error ? <InlineError message={ops.error.message} /> : null}
         <Section title="General">
-          <TextRow label={`Name (${languageCode})`} value={name} onChangeText={edit(setName)} readOnly={!canEdit} autoFocus={!method} />
+          <TextRow
+            label={`Name (${languageCode})`}
+            value={name}
+            onChangeText={edit(setName)}
+            readOnly={!canEdit}
+            autoFocus={!method}
+          />
           <TextRow
             label="Code"
             value={code}
@@ -172,6 +202,7 @@ function PaymentMethodForm({ method, refetch, refreshing }: { method?: PaymentMe
             autoCorrect={false}
             mono
           />
+          <SwitchRow label="Enabled" value={enabled} disabled={!canEdit} onValueChange={edit(setEnabled)} />
           <TextRow
             label={`Description (${languageCode})`}
             value={description}
@@ -179,21 +210,42 @@ function PaymentMethodForm({ method, refetch, refreshing }: { method?: PaymentMe
             readOnly={!canEdit}
             multiline
           />
-          <SwitchRow label="Enabled" value={enabled} disabled={!canEdit} onValueChange={edit(setEnabled)} />
         </Section>
-        <OperationEditor title="Payment handler" definitions={handlers} value={handler} onChange={edit(setHandler)} readOnly={!canEdit} />
+        <OperationEditor
+          title="Payment handler"
+          definitions={handlers}
+          value={handler}
+          onChange={edit(setHandler)}
+          readOnly={!canEdit}
+        />
         {checker ? (
           <>
-            <OperationEditor title="Eligibility checker" definitions={checkers} value={checker} onChange={edit(setChecker)} readOnly={!canEdit} />
-            {canEdit ? <Button title="Remove eligibility checker" variant="ghost" onPress={() => edit(setChecker)(null)} /> : null}
+            <OperationEditor
+              title="Eligibility checker"
+              definitions={checkers}
+              value={checker}
+              onChange={edit(setChecker)}
+              readOnly={!canEdit}
+            />
+            {canEdit ? (
+              <Section>
+                <View style={{ padding: spacing[3] }}>
+                  <Button title="Remove eligibility checker" variant="ghost" onPress={() => edit(setChecker)(null)} />
+                </View>
+              </Section>
+            ) : null}
           </>
         ) : checkers.length && canEdit ? (
-          <Section title="Eligibility checker" footer="Optional. Without a checker the method is available for every order.">
-            <Button
-              title="Add eligibility checker"
-              variant="ghost"
-              onPress={() => edit(setChecker)(defaultOperation(checkers[0]))}
-            />
+          <Section
+            title="Eligibility checker"
+            footer="Optional. Without a checker the method is available for every order.">
+            <View style={{ padding: spacing[3] }}>
+              <Button
+                title="Add eligibility checker"
+                variant="ghost"
+                onPress={() => edit(setChecker)(defaultOperation(checkers[0]))}
+              />
+            </View>
           </Section>
         ) : null}
         <CustomFieldsSection

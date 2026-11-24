@@ -48,7 +48,11 @@ export function AdministratorListScreen() {
           ...(term
             ? {
                 filter: {
-                  _or: [{ emailAddress: { contains: term } }, { firstName: { contains: term } }, { lastName: { contains: term } }],
+                  _or: [
+                    { emailAddress: { contains: term } },
+                    { firstName: { contains: term } },
+                    { lastName: { contains: term } },
+                  ],
                 },
               }
             : {}),
@@ -75,13 +79,26 @@ export function AdministratorDetailScreen({ id }: { id: string }) {
   return (
     <QueryBoundary query={query} pick={(d) => d.administrator} noun="administrator">
       {(admin) => (
-        <AdministratorForm key={admin.updatedAt} admin={admin} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <AdministratorForm
+          key={admin.updatedAt}
+          admin={admin}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
 }
 
-function AdministratorForm({ admin, refetch, refreshing }: { admin?: Administrator; refetch?: () => void; refreshing?: boolean }) {
+function AdministratorForm({
+  admin,
+  refetch,
+  refreshing,
+}: {
+  admin?: Administrator;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const defs = useCustomFields('Administrator');
   const invalidate = useInvalidate();
@@ -102,9 +119,11 @@ function AdministratorForm({ admin, refetch, refreshing }: { admin?: Administrat
   const canEdit = admin ? can('UpdateAdministrator') : can('CreateAdministrator');
 
   const save = async () => {
-    if (!firstName.trim() || !lastName.trim()) return alertError(new Error('First and last name are required.'), 'Missing name');
+    if (!firstName.trim() || !lastName.trim())
+      return alertError(new Error('First and last name are required.'), 'Missing name');
     if (!email.trim()) return alertError(new Error('Email address is required.'), 'Missing email');
-    if (!admin && !password) return alertError(new Error('Set a password for the new administrator.'), 'Missing password');
+    if (!admin && !password)
+      return alertError(new Error('Set a password for the new administrator.'), 'Missing password');
     const { customFields } = customFieldsInput(defs, cf);
     const base = {
       firstName: firstName.trim(),
@@ -140,7 +159,13 @@ function AdministratorForm({ admin, refetch, refreshing }: { admin?: Administrat
       />
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
         <Section title="General">
-          <TextRow label="First name" value={firstName} onChangeText={edit(setFirstName)} readOnly={!canEdit} autoFocus={!admin} />
+          <TextRow
+            label="First name"
+            value={firstName}
+            onChangeText={edit(setFirstName)}
+            readOnly={!canEdit}
+            autoFocus={!admin}
+          />
           <TextRow label="Last name" value={lastName} onChangeText={edit(setLastName)} readOnly={!canEdit} />
           <TextRow
             label="Email address"
@@ -153,10 +178,7 @@ function AdministratorForm({ admin, refetch, refreshing }: { admin?: Administrat
             autoCorrect={false}
             autoComplete="off"
           />
-        </Section>
-
-        {canEdit ? (
-          <Section title={admin ? 'Set new password' : 'Password'}>
+          {canEdit ? (
             <TextRow
               label={admin ? 'New password' : 'Password'}
               hint={admin ? 'Leave empty to keep the current password.' : undefined}
@@ -168,8 +190,8 @@ function AdministratorForm({ admin, refetch, refreshing }: { admin?: Administrat
               autoComplete="new-password"
               textContentType="newPassword"
             />
-          </Section>
-        ) : null}
+          ) : null}
+        </Section>
 
         <Section title="Roles" footer={isMe ? 'Removing your own roles can lock you out of this screen.' : undefined}>
           <MultiPickRow

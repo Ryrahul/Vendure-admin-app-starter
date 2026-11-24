@@ -56,7 +56,9 @@ export function ShippingMethodListScreen() {
           skip,
           take,
           sort: { name: 'ASC' as const },
-          ...(term ? { filter: { name: { contains: term }, code: { contains: term } }, filterOperator: 'OR' as const } : {}),
+          ...(term
+            ? { filter: { name: { contains: term }, code: { contains: term } }, filterOperator: 'OR' as const }
+            : {}),
         },
       })}
       select={(r) => r.shippingMethods}
@@ -80,13 +82,26 @@ export function ShippingMethodDetailScreen({ id }: { id: string }) {
   return (
     <QueryBoundary query={query} pick={(d) => d.shippingMethod} noun="shipping method">
       {(method) => (
-        <ShippingMethodForm key={method.updatedAt} method={method} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <ShippingMethodForm
+          key={method.updatedAt}
+          method={method}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
 }
 
-function ShippingMethodForm({ method, refetch, refreshing }: { method?: ShippingMethod; refetch?: () => void; refreshing?: boolean }) {
+function ShippingMethodForm({
+  method,
+  refetch,
+  refreshing,
+}: {
+  method?: ShippingMethod;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const { channel } = useChannelInfo();
   const defs = useCustomFields('ShippingMethod');
@@ -96,23 +111,30 @@ function ShippingMethodForm({ method, refetch, refreshing }: { method?: Shipping
   const update = useVendureMutation(UpdateShippingMethodDocument);
   const remove = useVendureMutation(DeleteShippingMethodDocument);
 
-  const translation = method?.translations.find((t) => t.languageCode === method.languageCode) ?? method?.translations[0];
+  const translation =
+    method?.translations.find((t) => t.languageCode === method.languageCode) ?? method?.translations[0];
   const languageCode = (translation?.languageCode ?? channel?.defaultLanguageCode ?? 'en') as LanguageCode;
 
   const [code, setCode] = useState(method?.code ?? '');
   const [name, setName] = useState(translation?.name ?? method?.name ?? '');
   const [description, setDescription] = useState(translation?.description ?? method?.description ?? '');
   const [handler, setHandler] = useState<string | null>(method?.fulfillmentHandlerCode ?? null);
-  const [checker, setChecker] = useState<ConfigurableOperationInput | null>(method ? toOperationInput(method.checker) : null);
+  const [checker, setChecker] = useState<ConfigurableOperationInput | null>(
+    method ? toOperationInput(method.checker) : null,
+  );
   const [calculator, setCalculator] = useState<ConfigurableOperationInput | null>(
     method ? toOperationInput(method.calculator) : null,
   );
-  const [cf, setCf] = useState(() => customFieldValues(defs, method?.customFields, translation as { customFields?: unknown } | undefined));
+  const [cf, setCf] = useState(() =>
+    customFieldValues(defs, method?.customFields, translation as { customFields?: unknown } | undefined),
+  );
   const [dirty, setDirty] = useState(false);
-  const edit = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setDirty(true);
-  };
+  const edit =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setDirty(true);
+    };
 
   const checkers = ops.data?.shippingEligibilityCheckers ?? [];
   const calculators = ops.data?.shippingCalculators ?? [];
@@ -131,7 +153,8 @@ function ShippingMethodForm({ method, refetch, refreshing }: { method?: Shipping
     if (!checker) problems.push('Choose an eligibility checker.');
     if (!calculator) problems.push('Choose a shipping calculator.');
     if (checker) for (const a of missingArgs(checker, checkers)) problems.push(`Checker: “${a}” is required.`);
-    if (calculator) for (const a of missingArgs(calculator, calculators)) problems.push(`Calculator: “${a}” is required.`);
+    if (calculator)
+      for (const a of missingArgs(calculator, calculators)) problems.push(`Calculator: “${a}” is required.`);
     if (problems.length || !checker || !calculator || !handlerValue) {
       return alertError(new Error(problems.join('\n')), 'Check the form');
     }
@@ -148,11 +171,26 @@ function ShippingMethodForm({ method, refetch, refreshing }: { method?: Shipping
     try {
       if (method) {
         await update.mutateAsync({
-          input: { id: method.id, code: code.trim(), fulfillmentHandler: handlerValue, checker, calculator, translations, customFields },
+          input: {
+            id: method.id,
+            code: code.trim(),
+            fulfillmentHandler: handlerValue,
+            checker,
+            calculator,
+            translations,
+            customFields,
+          },
         });
       } else {
         const res = await create.mutateAsync({
-          input: { code: code.trim(), fulfillmentHandler: handlerValue, checker, calculator, translations, customFields },
+          input: {
+            code: code.trim(),
+            fulfillmentHandler: handlerValue,
+            checker,
+            calculator,
+            translations,
+            customFields,
+          },
         });
         router.replace(`/more/shipping-methods/${res.createShippingMethod.id}`);
       }
@@ -210,8 +248,21 @@ function ShippingMethodForm({ method, refetch, refreshing }: { method?: Shipping
             }}
           />
         </Section>
-        <OperationEditor title="Eligibility checker" definitions={checkers} value={checker} onChange={edit(setChecker)} readOnly={!canEdit} />
-        <OperationEditor title="Shipping calculator" definitions={calculators} value={calculator} onChange={edit(setCalculator)} readOnly={!canEdit} />
+        <OperationEditor
+          title="Eligibility checker"
+          definitions={checkers}
+          value={checker}
+          onChange={edit(setChecker)}
+          readOnly={!canEdit}
+        />
+        <OperationEditor
+          title="Shipping calculator"
+          definitions={calculators}
+          value={calculator}
+          onChange={edit(setCalculator)}
+          readOnly={!canEdit}
+        />
+        <TestSection checker={checker} calculator={calculator} />
         <CustomFieldsSection
           defs={defs}
           values={cf}
@@ -221,7 +272,6 @@ function ShippingMethodForm({ method, refetch, refreshing }: { method?: Shipping
             setDirty(true);
           }}
         />
-        <TestSection checker={checker} calculator={calculator} />
         {method ? (
           <Section title="Info">
             <ValueRow label="ID" value={method.id} mono />
@@ -275,7 +325,11 @@ function TestSection({
         input: {
           checker,
           calculator,
-          shippingAddress: { streetLine1: 'Test street', countryCode: country.code, postalCode: postalCode || undefined },
+          shippingAddress: {
+            streetLine1: 'Test street',
+            countryCode: country.code,
+            postalCode: postalCode || undefined,
+          },
           lines: lines.map((l) => ({ productVariantId: l.id, quantity: l.quantity })),
         },
       });
@@ -287,7 +341,7 @@ function TestSection({
   };
 
   return (
-    <View style={{ gap: spacing[3] }}>
+    <>
       <Section
         title="Test"
         footer="Runs the checker and calculator above (including unsaved changes) against a sample order."
@@ -321,7 +375,9 @@ function TestSection({
               hint="Quantity (0 removes the line)"
               onChange={(q) => {
                 setLines((prev) =>
-                  q === 0 ? prev.filter((x) => x.id !== l.id) : prev.map((x) => (x.id === l.id ? { ...x, quantity: q ?? 1 } : x)),
+                  q === 0
+                    ? prev.filter((x) => x.id !== l.id)
+                    : prev.map((x) => (x.id === l.id ? { ...x, quantity: q ?? 1 } : x)),
                 );
                 touch();
               }}
@@ -348,13 +404,26 @@ function TestSection({
             touch();
           }}
         />
+        <View style={{ padding: spacing[3] }}>
+          <Button
+            title={result ? 'Run test again' : 'Run test'}
+            variant="secondary"
+            disabled={!ready}
+            loading={test.isPending}
+            onPress={run}
+          />
+        </View>
       </Section>
-      <Button title={result ? 'Run test again' : 'Run test'} variant="secondary" disabled={!ready} loading={test.isPending} onPress={run} />
       {result ? (
         <Section title={stale ? 'Result (out of date)' : 'Result'}>
           <ListRow
-            title="Eligible"
-            trailing={<StatusBadge label={result.eligible ? 'Eligible' : 'Not eligible'} tone={result.eligible ? 'success' : 'warning'} />}
+            title="Eligibility"
+            trailing={
+              <StatusBadge
+                label={result.eligible ? 'Eligible' : 'Not eligible'}
+                tone={result.eligible ? 'success' : 'warning'}
+              />
+            }
           />
           {result.quote ? (
             <>
@@ -371,6 +440,6 @@ function TestSection({
           ) : null}
         </Section>
       ) : null}
-    </View>
+    </>
   );
 }

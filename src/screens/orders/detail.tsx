@@ -1,7 +1,8 @@
 /**
- * Order detail: summary, lines, customer, addresses, payments (settle / cancel / transition /
- * refunds with settle), fulfillments (transitions), custom fields, actions (state menu, add
- * payment, fulfil, cancel, refund, modify) and the history timeline with notes.
+ * Order detail, most-used first: status + total, actions (add payment, fulfil, modify, refund,
+ * cancel, state menu), customer, items, summary, payments (settle / cancel / transition / refunds
+ * with settle), fulfillments (transitions), addresses, modifications, custom fields, info and the
+ * history timeline with notes.
  */
 import { Redirect, router, Stack } from 'expo-router';
 import { useState } from 'react';
@@ -30,10 +31,11 @@ import { openPicker } from '@/api/picker';
 import { useChannelInfo } from '@/api/use-channel-info';
 import { Button } from '@/components/button';
 import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-fields-section';
-import { TextRow } from '@/components/form/fields';
+import { TextRow, ValueRow } from '@/components/form/fields';
 import { InlineError } from '@/components/inline-error';
 import { ListRow } from '@/components/list-row';
 import { ErrorState, LoadingState } from '@/components/screen-state';
+import { useAfterTransition } from '@/hooks/use-after-transition';
 import { Section } from '@/components/section';
 import { StatusBadge } from '@/components/status-badge';
 import { Text } from '@/components/text';
@@ -62,8 +64,10 @@ export const ORDER_DOCS = [OrderDetailDocument, OrderHistoryDocument, OrderListD
 export function OrderDetailScreen({ id }: { id: string }) {
   const query = useVendureQuery(OrderDetailDocument, { id });
   const order = query.data?.order;
+  // Mount the (large) order body after the push transition; show a skeleton until then.
+  const ready = useAfterTransition();
 
-  if (query.isLoading) return <LoadingState label="Loading order…" />;
+  if (query.isLoading || (!ready && order)) return <LoadingState variant="form" label="Loading order…" />;
   if (!order) {
     return query.error ? (
       <ErrorState error={query.error} onRetry={() => void query.refetch()} />
@@ -72,7 +76,9 @@ export function OrderDetailScreen({ id }: { id: string }) {
     );
   }
   if (order.state === 'Draft') return <Redirect href={`/orders/draft/${order.id}`} />;
-  return <OrderBody order={order} refetch={() => void query.refetch()} refreshing={query.isRefetching} error={query.error} />;
+  return (
+    <OrderBody order={order} refetch={() => void query.refetch()} refreshing={query.isRefetching} error={query.error} />
+  );
 }
 
 function OrderBody({
@@ -124,7 +130,9 @@ function OrderBody({
     const destructive = DESTRUCTIVE_STATES.has(state);
     const ok = await confirm({
       title: `Move order to “${humanizeState(state)}”?`,
-      message: destructive ? 'Cancelling an order cannot be undone.' : `The order is currently ${humanizeState(order.state)}.`,
+      message: destructive
+        ? 'Cancelling an order cannot be undone.'
+        : `The order is currently ${humanizeState(order.state)}.`,
       confirmLabel: humanizeState(state),
       destructive,
     });
@@ -139,7 +147,11 @@ function OrderBody({
     const states = order.nextStates.filter((s) => s !== 'Modifying');
     const picked = await openPicker({
       title: 'Change order state',
-      options: states.map((s) => ({ id: s, title: humanizeState(s), subtitle: DESTRUCTIVE_STATES.has(s) ? 'Cannot be undone' : undefined })),
+      options: states.map((s) => ({
+        id: s,
+        title: humanizeState(s),
+        subtitle: DESTRUCTIVE_STATES.has(s) ? 'Cannot be undone' : undefined,
+      })),
     });
     if (picked?.[0]) await transitionOrder(picked[0].id);
   };
@@ -175,11 +187,27 @@ function OrderBody({
         onPress: () => router.push(`/orders/payment/${order.id}`),
       });
     }
-    if (canAddFulfillment(order)) actions.push({ key: 'fulfil', title: 'Fulfil', onPress: () => router.push(`/orders/fulfil/${order.id}`) });
+    if (canAddFulfillment(order))
+      actions.push({ key: 'fulfil', title: 'Fulfil', onPress: () => router.push(`/orders/fulfil/${order.id}`) });
     if (order.state === 'Modifying') actions.push({ key: 'modify', title: 'Continue modifying', onPress: startModify });
-    else if (order.nextStates.includes('Modifying')) actions.push({ key: 'modify', title: 'Modify order', subtitle: 'Change line quantities', onPress: startModify });
-    if (canRefund(order)) actions.push({ key: 'refund', title: 'Refund', onPress: () => router.push(`/orders/refund/${order.id}`) });
-    if (canCancel(order)) actions.push({ key: 'cancel', title: 'Cancel order or items', onPress: () => router.push(`/orders/cancel/${order.id}`) });
+    else if (order.nextStates.includes('Modifying'))
+      actions.push({ key: 'modify', title: 'Modify order', subtitle: 'Change line quantities', onPress: startModify });
+    if (canRefund(order))
+      actions.push({ key: 'refund', title: 'Refund', onPress: () => router.push(`/orders/refund/${order.id}`) });
+    if (canCancel(order))
+      actions.push({
+        key: 'cancel',
+        title: 'Cancel order or items',
+        onPress: () => router.push(`/orders/cancel/${order.id}`),
+      });
+    if (order.nextStates.some((s) => s !== 'Modifying')) {
+      actions.push({
+        key: 'state',
+        title: 'Change state…',
+        subtitle: busy === 'state' ? 'Updating…' : `Currently ${humanizeState(order.state)}`,
+        onPress: openStateMenu,
+      });
+    }
   }
 
   return (
@@ -192,31 +220,50 @@ function OrderBody({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} />}>
         {error ? <InlineError message={error.message} /> : null}
 
+        {/* Status and total first: the code is already the screen title. */}
         <View style={{ gap: spacing[2] }}>
-          <Text variant="mono" color="mutedForeground">
-            {order.code}
-          </Text>
-          <Text variant="metric">{money(order.totalWithTax)}</Text>
           <View style={{ flexDirection: 'row', gap: spacing[2], alignItems: 'center', flexWrap: 'wrap' }}>
             <StatusBadge state={order.state} />
             <Text variant="caption" color="mutedForeground">
-              {order.orderPlacedAt ? `Placed ${formatDate(order.orderPlacedAt)}` : `Updated ${formatDate(order.updatedAt)}`}
+              {order.orderPlacedAt
+                ? `Placed ${formatDate(order.orderPlacedAt)}`
+                : `Updated ${formatDate(order.updatedAt)}`}
             </Text>
           </View>
-          {canUpdate && order.nextStates.some((s) => s !== 'Modifying') ? (
-            <View style={{ flexDirection: 'row', paddingTop: spacing[2] }}>
-              <Button title="Change state…" size="sm" variant="secondary" loading={busy === 'state'} onPress={openStateMenu} />
-            </View>
-          ) : null}
+          <Text variant="metric">{money(order.totalWithTax)}</Text>
+          <Text variant="caption" color="mutedForeground">
+            {[
+              `${order.totalQuantity} item${order.totalQuantity === 1 ? '' : 's'}`,
+              outstanding > 0 && order.state !== 'Cancelled' ? `${money(outstanding)} outstanding` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
         </View>
 
         {actions.length ? (
           <Section title="Actions">
             {actions.map((a) => (
-              <ListRow key={a.key} title={a.title} subtitle={a.subtitle} onPress={busy ? undefined : a.onPress} chevron />
+              <ListRow
+                key={a.key}
+                title={a.title}
+                subtitle={a.subtitle}
+                onPress={busy ? undefined : a.onPress}
+                chevron
+              />
             ))}
           </Section>
         ) : null}
+
+        <Section title="Customer">
+          <ListRow
+            title={customerName(order.customer)}
+            subtitle={
+              [order.customer?.emailAddress, order.customer?.phoneNumber].filter(Boolean).join(' · ') || undefined
+            }
+            onPress={order.customer ? () => router.push(`/customers/${order.customer!.id}`) : undefined}
+          />
+        </Section>
 
         <Section title={`Items (${order.totalQuantity})`}>
           {order.lines.map((line) => (
@@ -236,7 +283,6 @@ function OrderBody({
             />
           ))}
         </Section>
-        <LineCustomFields lines={order.lines} />
 
         <Section title="Summary">
           <ListRow title="Subtotal" value={money(order.subTotalWithTax)} />
@@ -254,25 +300,6 @@ function OrderBody({
           {order.couponCodes.length ? <ListRow title="Coupon codes" value={order.couponCodes.join(', ')} /> : null}
         </Section>
 
-        <Section title="Customer">
-          <ListRow
-            title={customerName(order.customer)}
-            subtitle={[order.customer?.emailAddress, order.customer?.phoneNumber].filter(Boolean).join(' · ') || undefined}
-            onPress={order.customer ? () => router.push(`/customers/${order.customer!.id}`) : undefined}
-          />
-        </Section>
-
-        {shipping.length ? (
-          <Section title="Shipping address">
-            <Text style={{ padding: spacing[4] }}>{shipping.join('\n')}</Text>
-          </Section>
-        ) : null}
-        {billing.length && billing.join() !== shipping.join() ? (
-          <Section title="Billing address">
-            <Text style={{ padding: spacing[4] }}>{billing.join('\n')}</Text>
-          </Section>
-        ) : null}
-
         {order.payments?.length ? (
           <Section title="Payments">
             {order.payments.map((p) => {
@@ -282,7 +309,9 @@ function OrderBody({
                   <ListRow
                     title={p.method}
                     code={p.transactionId ?? undefined}
-                    subtitle={[formatDate(p.createdAt), p.errorMessage ?? '', metadataNote(p.metadata)].filter(Boolean).join(' · ')}
+                    subtitle={[formatDate(p.createdAt), p.errorMessage ?? '', metadataNote(p.metadata)]
+                      .filter(Boolean)
+                      .join(' · ')}
                     value={money(p.amount)}
                     trailing={<StatusBadge state={p.state} />}
                   />
@@ -294,8 +323,19 @@ function OrderBody({
                           size="sm"
                           loading={busy === `settle-${p.id}`}
                           onPress={async () => {
-                            if (!(await confirm({ title: 'Settle payment?', message: `${money(p.amount)} via ${p.method}`, confirmLabel: 'Settle' }))) return;
-                            await act(`settle-${p.id}`, async () => unwrapResult((await settlePayment.mutateAsync({ id: p.id })).settlePayment), 'Could not settle payment');
+                            if (
+                              !(await confirm({
+                                title: 'Settle payment?',
+                                message: `${money(p.amount)} via ${p.method}`,
+                                confirmLabel: 'Settle',
+                              }))
+                            )
+                              return;
+                            await act(
+                              `settle-${p.id}`,
+                              async () => unwrapResult((await settlePayment.mutateAsync({ id: p.id })).settlePayment),
+                              'Could not settle payment',
+                            );
                           }}
                         />
                       ) : null}
@@ -306,8 +346,20 @@ function OrderBody({
                           variant="secondary"
                           loading={busy === `cancel-${p.id}`}
                           onPress={async () => {
-                            if (!(await confirm({ title: 'Cancel payment?', message: `${money(p.amount)} via ${p.method}. This cannot be undone.`, confirmLabel: 'Cancel payment', destructive: true }))) return;
-                            await act(`cancel-${p.id}`, async () => unwrapResult((await cancelPayment.mutateAsync({ id: p.id })).cancelPayment), 'Could not cancel payment');
+                            if (
+                              !(await confirm({
+                                title: 'Cancel payment?',
+                                message: `${money(p.amount)} via ${p.method}. This cannot be undone.`,
+                                confirmLabel: 'Cancel payment',
+                                destructive: true,
+                              }))
+                            )
+                              return;
+                            await act(
+                              `cancel-${p.id}`,
+                              async () => unwrapResult((await cancelPayment.mutateAsync({ id: p.id })).cancelPayment),
+                              'Could not cancel payment',
+                            );
                           }}
                         />
                       ) : null}
@@ -318,11 +370,28 @@ function OrderBody({
                           variant="ghost"
                           loading={busy === `pstate-${p.id}`}
                           onPress={async () => {
-                            const picked = await openPicker({ title: 'Payment state', options: others.map((s) => ({ id: s, title: humanizeState(s) })) });
+                            const picked = await openPicker({
+                              title: 'Payment state',
+                              options: others.map((s) => ({ id: s, title: humanizeState(s) })),
+                            });
                             const state = picked?.[0]?.id;
                             if (!state) return;
-                            if (!(await confirm({ title: `Move payment to “${humanizeState(state)}”?`, confirmLabel: humanizeState(state), destructive: DESTRUCTIVE_STATES.has(state) }))) return;
-                            await act(`pstate-${p.id}`, async () => unwrapResult((await transitionPayment.mutateAsync({ id: p.id, state })).transitionPaymentToState), 'Could not change payment state');
+                            if (
+                              !(await confirm({
+                                title: `Move payment to “${humanizeState(state)}”?`,
+                                confirmLabel: humanizeState(state),
+                                destructive: DESTRUCTIVE_STATES.has(state),
+                              }))
+                            )
+                              return;
+                            await act(
+                              `pstate-${p.id}`,
+                              async () =>
+                                unwrapResult(
+                                  (await transitionPayment.mutateAsync({ id: p.id, state })).transitionPaymentToState,
+                                ),
+                              'Could not change payment state',
+                            );
                           }}
                         />
                       ) : null}
@@ -336,14 +405,23 @@ function OrderBody({
                       canSettle={canUpdate && r.state === 'Pending'}
                       busy={busy === `refund-${r.id}`}
                       onSettle={(transactionId) =>
-                        act(`refund-${r.id}`, async () => unwrapResult((await settleRefund.mutateAsync({ input: { id: r.id, transactionId } })).settleRefund), 'Could not settle refund')
+                        act(
+                          `refund-${r.id}`,
+                          async () =>
+                            unwrapResult(
+                              (await settleRefund.mutateAsync({ input: { id: r.id, transactionId } })).settleRefund,
+                            ),
+                          'Could not settle refund',
+                        )
                       }
                     />
                   ))}
                 </View>
               );
             })}
-            {outstanding > 0 && order.state !== 'Cancelled' ? <ListRow title="Outstanding" value={money(outstanding)} /> : null}
+            {outstanding > 0 && order.state !== 'Cancelled' ? (
+              <ListRow title="Outstanding" value={money(outstanding)} />
+            ) : null}
           </Section>
         ) : null}
 
@@ -377,7 +455,15 @@ function OrderBody({
                             }))
                           )
                             return;
-                          await act(`f-${f.id}-${s}`, async () => unwrapResult((await transitionFulfillment.mutateAsync({ id: f.id, state: s })).transitionFulfillmentToState), 'Could not update fulfillment');
+                          await act(
+                            `f-${f.id}-${s}`,
+                            async () =>
+                              unwrapResult(
+                                (await transitionFulfillment.mutateAsync({ id: f.id, state: s }))
+                                  .transitionFulfillmentToState,
+                              ),
+                            'Could not update fulfillment',
+                          );
                         }}
                       />
                     ))}
@@ -385,6 +471,17 @@ function OrderBody({
                 ) : null}
               </View>
             ))}
+          </Section>
+        ) : null}
+
+        {shipping.length || billing.length ? (
+          <Section title="Addresses">
+            {shipping.length ? <AddressBlock label="Shipping" lines={shipping} /> : null}
+            {billing.length && billing.join() !== shipping.join() ? (
+              <AddressBlock label="Billing" lines={billing} />
+            ) : shipping.length && billing.length ? (
+              <ListRow title="Billing" value="Same as shipping" />
+            ) : null}
           </Section>
         ) : null}
 
@@ -396,17 +493,41 @@ function OrderBody({
                 title={m.note || 'Modification'}
                 subtitle={formatDate(m.createdAt)}
                 value={money(m.priceChange)}
-                trailing={<StatusBadge label={m.isSettled ? 'Settled' : 'Unsettled'} tone={m.isSettled ? 'neutral' : 'warning'} />}
+                trailing={
+                  <StatusBadge
+                    label={m.isSettled ? 'Settled' : 'Unsettled'}
+                    tone={m.isSettled ? 'neutral' : 'warning'}
+                  />
+                }
               />
             ))}
           </Section>
         ) : null}
 
         <OrderCustomFields key={order.updatedAt} order={order} canEdit={canUpdate} onSaved={refreshAll} />
+        <LineCustomFields lines={order.lines} />
+
+        <Section title="Info">
+          <ValueRow label="ID" value={order.id} mono />
+          <ValueRow label="Created" value={formatDate(order.createdAt)} />
+          <ValueRow label="Updated" value={formatDate(order.updatedAt)} />
+        </Section>
 
         <OrderHistory orderId={order.id} canNote={canUpdate} />
       </ScrollView>
     </>
+  );
+}
+
+function AddressBlock({ label, lines }: { label: string; lines: string[] }) {
+  const { spacing } = useTheme();
+  return (
+    <View style={{ paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[1] }}>
+      <Text variant="caption" color="mutedForeground">
+        {label}
+      </Text>
+      <Text>{lines.join('\n')}</Text>
+    </View>
   );
 }
 
@@ -442,9 +563,21 @@ function RefundRow({
       />
       {canSettle ? (
         <View style={{ paddingBottom: spacing[2] }}>
-          <TextRow label="Refund transaction ID" value={txId} onChangeText={setTxId} autoCapitalize="none" placeholder="Required to settle" />
+          <TextRow
+            label="Refund transaction ID"
+            value={txId}
+            onChangeText={setTxId}
+            autoCapitalize="none"
+            placeholder="Required to settle"
+          />
           <ActionBar>
-            <Button title="Settle refund" size="sm" loading={busy} disabled={!txId.trim()} onPress={() => void onSettle(txId.trim())} />
+            <Button
+              title="Settle refund"
+              size="sm"
+              loading={busy}
+              disabled={!txId.trim()}
+              onPress={() => void onSettle(txId.trim())}
+            />
           </ActionBar>
         </View>
       ) : null}
@@ -471,7 +604,15 @@ function LineCustomFields({ lines }: { lines: OrderDetail['lines'] }) {
   );
 }
 
-function OrderCustomFields({ order, canEdit, onSaved }: { order: OrderDetail; canEdit: boolean; onSaved: () => Promise<unknown> }) {
+function OrderCustomFields({
+  order,
+  canEdit,
+  onSaved,
+}: {
+  order: OrderDetail;
+  canEdit: boolean;
+  onSaved: () => Promise<unknown>;
+}) {
   const { spacing } = useTheme();
   const defs = useCustomFields('Order');
   const save = useVendureMutation(SetOrderCustomFieldsDocument);
@@ -490,20 +631,26 @@ function OrderCustomFields({ order, canEdit, onSaved }: { order: OrderDetail; ca
         }}
       />
       {canEdit && dirty ? (
-        <Button
-          title="Save custom fields"
-          size="sm"
-          loading={save.isPending}
-          onPress={async () => {
-            try {
-              await save.mutateAsync({ input: { id: order.id, customFields: customFieldsInput(defs, values).customFields } });
-              setDirty(false);
-              await onSaved();
-            } catch (e) {
-              alertError(e, 'Could not save custom fields');
-            }
-          }}
-        />
+        <Section>
+          <View style={{ padding: spacing[3] }}>
+            <Button
+              title="Save custom fields"
+              size="sm"
+              loading={save.isPending}
+              onPress={async () => {
+                try {
+                  await save.mutateAsync({
+                    input: { id: order.id, customFields: customFieldsInput(defs, values).customFields },
+                  });
+                  setDirty(false);
+                  await onSaved();
+                } catch (e) {
+                  alertError(e, 'Could not save custom fields');
+                }
+              }}
+            />
+          </View>
+        </Section>
       ) : null}
     </View>
   );

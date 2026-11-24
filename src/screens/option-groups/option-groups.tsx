@@ -71,13 +71,26 @@ export function OptionGroupDetailScreen({ id }: { id: string }) {
   return (
     <QueryBoundary query={query} pick={(d) => d.productOptionGroup} noun="option group">
       {(group) => (
-        <OptionGroupForm key={formKey(group)} group={group} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <OptionGroupForm
+          key={formKey(group)}
+          group={group}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
 }
 
-function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; refetch?: () => void; refreshing?: boolean }) {
+function OptionGroupForm({
+  group,
+  refetch,
+  refreshing,
+}: {
+  group?: OptionGroup;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const defs = useCustomFields('ProductOptionGroup');
   const optionDefs = useCustomFields('ProductOption');
@@ -113,14 +126,21 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
     if (optionInput.invalid.length) return alertError(new Error('Every option needs a name.'), 'Missing name');
     const { customFields, translationCustomFields } = customFieldsInput(defs, cf);
     const translations = [
-      { ...(translation ? { id: translation.id } : {}), languageCode: language, name: name.trim(), customFields: translationCustomFields },
+      {
+        ...(translation ? { id: translation.id } : {}),
+        languageCode: language,
+        name: name.trim(),
+        customFields: translationCustomFields,
+      },
     ];
     setSaving(true);
     let createdId: string | undefined;
     let ok = false;
     try {
       if (group) {
-        await update.mutateAsync({ input: { id: group.id, code: code.trim() || toCode(name), customFields, translations } });
+        await update.mutateAsync({
+          input: { id: group.id, code: code.trim() || toCode(name), customFields, translations },
+        });
         // Each step records its progress in the drafts, so a retry after a failure neither
         // re-creates options nor re-sends ones already saved.
         let drafts = options;
@@ -146,7 +166,9 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
           },
         });
         createdId = res.createProductOptionGroup.id;
-        for (const input of nestedCustomFieldUpdates(matchCreated(optionInput.create, res.createProductOptionGroup.options))) {
+        for (const input of nestedCustomFieldUpdates(
+          matchCreated(optionInput.create, res.createProductOptionGroup.options),
+        )) {
           await updateOption.mutateAsync({ input });
         }
       }
@@ -157,9 +179,10 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
     } finally {
       setSaving(false);
       // On failure keep the local drafts (already reconciled above) instead of reloading the form.
-      await (ok || createdId
-        ? invalidate(OptionGroupListDocument, OptionGroupDetailDocument)
-        : invalidate(OptionGroupListDocument)
+      await (
+        ok || createdId
+          ? invalidate(OptionGroupListDocument, OptionGroupDetailDocument)
+          : invalidate(OptionGroupListDocument)
       ).catch(() => {});
       if (createdId) router.replace(`/catalog/option-groups/${createdId}`);
     }
@@ -200,15 +223,6 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
             }}
           />
         </Section>
-        <CustomFieldsSection
-          defs={defs}
-          values={cf}
-          readOnly={!canEdit}
-          onChange={(k, v) => {
-            setCf((prev) => ({ ...prev, [k]: v }));
-            setDirty(true);
-          }}
-        />
         <ChildValuesEditor
           title="Options"
           noun="option"
@@ -221,6 +235,15 @@ function OptionGroupForm({ group, refetch, refreshing }: { group?: OptionGroup; 
           onDelete={async (optionId) => {
             assertDeleted((await deleteOption.mutateAsync({ id: optionId })).deleteProductOption);
             await invalidate(OptionGroupListDocument);
+          }}
+        />
+        <CustomFieldsSection
+          defs={defs}
+          values={cf}
+          readOnly={!canEdit}
+          onChange={(k, v) => {
+            setCf((prev) => ({ ...prev, [k]: v }));
+            setDirty(true);
           }}
         />
         {group ? (

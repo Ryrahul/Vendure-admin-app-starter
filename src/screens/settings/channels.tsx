@@ -46,14 +46,19 @@ export function ChannelListScreen() {
     <EntityListScreen
       document={ChannelListDocument}
       variables={(term, skip, take) => ({
-        options: { skip, take, sort: { code: 'ASC' as const }, ...(term ? { filter: { code: { contains: term } } } : {}) },
+        options: {
+          skip,
+          take,
+          sort: { code: 'ASC' as const },
+          ...(term ? { filter: { code: { contains: term } } } : {}),
+        },
       })}
       select={(r) => r.channels}
       noun={['channel', 'channels']}
       createHref={can('CreateChannel') ? '/more/channels/new' : undefined}
       row={(c) => ({
         title: channelLabel(c.code),
-        subtitle: [c.seller?.name, c.defaultCurrencyCode, c.defaultLanguageCode.toUpperCase(), c.pricesIncludeTax ? 'incl. tax' : null]
+        subtitle: [`${c.defaultCurrencyCode}${c.pricesIncludeTax ? ' incl. tax' : ''}`, c.seller?.name]
           .filter(Boolean)
           .join(' · '),
         trailing: c.code === DEFAULT_CHANNEL_CODE ? <StatusBadge label="Default" tone="info" /> : undefined,
@@ -71,7 +76,12 @@ export function ChannelDetailScreen({ id }: { id: string }) {
   return (
     <QueryBoundary query={query} pick={(d) => d.channel} noun="channel">
       {(channel) => (
-        <ChannelForm key={channel.updatedAt} channel={channel} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <ChannelForm
+          key={channel.updatedAt}
+          channel={channel}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
@@ -82,7 +92,15 @@ const randomToken = () =>
 
 const zone = (z?: { id: string; name: string } | null): Picked | null => (z ? { id: z.id, label: z.name } : null);
 
-function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refetch?: () => void; refreshing?: boolean }) {
+function ChannelForm({
+  channel,
+  refetch,
+  refreshing,
+}: {
+  channel?: Channel;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const defs = useCustomFields('Channel');
   const invalidate = useInvalidate();
@@ -92,15 +110,20 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
   const { dirty, setDirty, edit } = useDirty();
   const serverConfig = useServerConfig();
   const settings = useVendureQuery(GlobalSettingsDetailDocument);
-  const globalLanguages: string[] = settings.data?.globalSettings.availableLanguages ?? serverConfig?.availableLanguages ?? ['en'];
+  const globalLanguages: string[] = settings.data?.globalSettings.availableLanguages ??
+    serverConfig?.availableLanguages ?? ['en'];
 
   const [code, setCode] = useState(channel?.code ?? '');
   const [token, setToken] = useState(channel?.token ?? randomToken());
   // Changing the active channel's token would break every following request in this session.
   const activeToken = useSession().state.channelToken;
   const isActive = !!channel && channel.token === activeToken;
-  const [seller, setSeller] = useState<Picked | null>(channel?.seller ? { id: channel.seller.id, label: channel.seller.name } : null);
-  const [defaultLanguage, setDefaultLanguage] = useState<string>(channel?.defaultLanguageCode ?? globalLanguages[0] ?? 'en');
+  const [seller, setSeller] = useState<Picked | null>(
+    channel?.seller ? { id: channel.seller.id, label: channel.seller.name } : null,
+  );
+  const [defaultLanguage, setDefaultLanguage] = useState<string>(
+    channel?.defaultLanguageCode ?? globalLanguages[0] ?? 'en',
+  );
   const [languages, setLanguages] = useState<string[]>(
     channel?.availableLanguageCodes ?? [channel?.defaultLanguageCode ?? globalLanguages[0] ?? 'en'],
   );
@@ -121,7 +144,8 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
     if (!code.trim()) return alertError(new Error('Code is required.'), 'Missing code');
     if (!token.trim()) return alertError(new Error('Token is required.'), 'Missing token');
     if (!defaultCurrency) return alertError(new Error('Choose a default currency.'), 'Missing currency');
-    if (!taxZone || !shippingZone) return alertError(new Error('Choose the default tax and shipping zones.'), 'Missing zones');
+    if (!taxZone || !shippingZone)
+      return alertError(new Error('Choose the default tax and shipping zones.'), 'Missing zones');
     const { customFields } = customFieldsInput(defs, cf);
     const input = {
       code: code.trim(),
@@ -165,7 +189,9 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
         hidden={!canEdit}
       />
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
-        <Section title="General" footer={channel ? undefined : 'New channels appear in the channel switcher after you sign in again.'}>
+        <Section
+          title="General"
+          footer={channel ? undefined : 'New channels appear in the channel switcher after you sign in again.'}>
           <TextRow
             label="Code"
             value={code}
@@ -221,7 +247,11 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
         <Section title="Currencies & tax">
           <PickRow
             label="Default currency"
-            value={defaultCurrency ? { id: defaultCurrency, label: `${currencyName(defaultCurrency)} (${defaultCurrency})` } : null}
+            value={
+              defaultCurrency
+                ? { id: defaultCurrency, label: `${currencyName(defaultCurrency)} (${defaultCurrency})` }
+                : null
+            }
             disabled={!canEdit}
             options={currencyOptions()}
             onChange={(v) => {
@@ -250,14 +280,37 @@ function ChannelForm({ channel, refetch, refreshing }: { channel?: Channel; refe
           />
         </Section>
 
-        <Section title="Defaults">
-          <PickRow label="Default shipping zone" value={shippingZone} onChange={edit(setShippingZone)} source={zonePicker} disabled={!canEdit} />
-          <PickRow label="Default tax zone" value={taxZone} onChange={edit(setTaxZone)} source={zonePicker} disabled={!canEdit} />
+        <Section title="Zones">
+          <PickRow
+            label="Default shipping zone"
+            value={shippingZone}
+            onChange={edit(setShippingZone)}
+            source={zonePicker}
+            disabled={!canEdit}
+          />
+          <PickRow
+            label="Default tax zone"
+            value={taxZone}
+            onChange={edit(setTaxZone)}
+            source={zonePicker}
+            disabled={!canEdit}
+          />
         </Section>
 
         <Section title="Stock">
-          <SwitchRow label="Track inventory" value={trackInventory} disabled={!canEdit} onValueChange={edit(setTrackInventory)} />
-          <NumberRow label="Out-of-stock threshold" integer value={threshold} readOnly={!canEdit} onChange={edit(setThreshold)} />
+          <SwitchRow
+            label="Track inventory"
+            value={trackInventory}
+            disabled={!canEdit}
+            onValueChange={edit(setTrackInventory)}
+          />
+          <NumberRow
+            label="Out-of-stock threshold"
+            integer
+            value={threshold}
+            readOnly={!canEdit}
+            onChange={edit(setThreshold)}
+          />
         </Section>
 
         <CustomFieldsSection

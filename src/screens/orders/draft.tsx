@@ -46,19 +46,27 @@ import type { DraftOrderDetailQuery } from '@/gql/graphql';
 import { useTheme } from '@/theme';
 import { alertError, confirm } from '@/utils/confirm';
 import { customerName, formatMoney, humanizeState } from '@/utils/format';
-import { addressProblem, addressRows, emptyAddress, toAddressInput, toAddressValue, type AddressValue } from '@/screens/customers/address-fields';
+import {
+  addressProblem,
+  addressRows,
+  emptyAddress,
+  toAddressInput,
+  toAddressValue,
+  type AddressValue,
+} from '@/screens/customers/address-fields';
 
 import { ActionBar, addressLines, QuantityRow } from './parts';
 
 type Draft = NonNullable<DraftOrderDetailQuery['order']>;
 
 export function DraftOrderScreen({ id }: { id: string }) {
+  const { spacing } = useTheme();
   const query = useVendureQuery(DraftOrderDetailDocument, { id });
   return (
     <QueryBoundary query={query} pick={(d) => d.order} noun="draft order">
       {(order) =>
         order.state !== 'Draft' ? (
-          <View style={{ padding: 16, gap: 12 }}>
+          <View style={{ padding: spacing[4], gap: spacing[3] }}>
             <Stack.Screen options={{ title: order.code }} />
             <InlineError message={`This order is ${humanizeState(order.state)}, no longer a draft.`} />
             <Button title="Open order" onPress={() => router.replace(`/orders/${order.id}`)} />
@@ -107,10 +115,13 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
   );
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [newCustomer, setNewCustomer] = useState<{ firstName: string; lastName: string; emailAddress: string } | null>(null);
+  const [newCustomer, setNewCustomer] = useState<{ firstName: string; lastName: string; emailAddress: string } | null>(
+    null,
+  );
   const [coupon, setCoupon] = useState('');
 
-  const refresh = () => invalidate(DraftOrderDetailDocument, DraftOrderEligibleShippingMethodsDocument, OrderListDocument);
+  const refresh = () =>
+    invalidate(DraftOrderDetailDocument, DraftOrderEligibleShippingMethodsDocument, OrderListDocument);
   const act = async (key: string, fn: () => Promise<unknown>, errorTitle = 'Could not update draft') => {
     setBusy(key);
     try {
@@ -128,7 +139,10 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
   const chooseCustomer = async () => {
     const picked = await openPicker({ title: 'Customer', source: customerPicker });
     const c = picked?.[0];
-    if (c) await act('customer', async () => unwrapResult((await setCustomer.mutateAsync({ orderId, customerId: c.id })).setCustomerForDraftOrder));
+    if (c)
+      await act('customer', async () =>
+        unwrapResult((await setCustomer.mutateAsync({ orderId, customerId: c.id })).setCustomerForDraftOrder),
+      );
   };
 
   const addLine = async () => {
@@ -138,8 +152,18 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
     const existing = order.lines.find((l) => l.productVariant.id === v.id);
     await act('lines', async () =>
       existing && canAdjustLines
-        ? unwrapResult((await adjustLine.mutateAsync({ orderId, input: { orderLineId: existing.id, quantity: existing.quantity + 1 } })).adjustDraftOrderLine)
-        : unwrapResult((await addItem.mutateAsync({ orderId, input: { productVariantId: v.id, quantity: 1 } })).addItemToDraftOrder),
+        ? unwrapResult(
+            (
+              await adjustLine.mutateAsync({
+                orderId,
+                input: { orderLineId: existing.id, quantity: existing.quantity + 1 },
+              })
+            ).adjustDraftOrderLine,
+          )
+        : unwrapResult(
+            (await addItem.mutateAsync({ orderId, input: { productVariantId: v.id, quantity: 1 } }))
+              .addItemToDraftOrder,
+          ),
     );
   };
 
@@ -147,7 +171,9 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
     act(`line-${lineId}`, async () =>
       quantity <= 0
         ? unwrapResult((await removeLine.mutateAsync({ orderId, orderLineId: lineId })).removeDraftOrderLine)
-        : unwrapResult((await adjustLine.mutateAsync({ orderId, input: { orderLineId: lineId, quantity } })).adjustDraftOrderLine),
+        : unwrapResult(
+            (await adjustLine.mutateAsync({ orderId, input: { orderLineId: lineId, quantity } })).adjustDraftOrderLine,
+          ),
     );
 
   const complete = async () => {
@@ -158,8 +184,20 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
       !order.shippingLines.length && 'a shipping method',
     ].filter(Boolean);
     if (problems.length) return alertError(new Error(`The draft needs ${problems.join(', ')}.`), 'Draft incomplete');
-    if (!(await confirm({ title: 'Complete draft?', message: 'The order moves to “Arranging payment”. You can then add a payment.', confirmLabel: 'Complete' }))) return;
-    const ok = await act('complete', async () => unwrapResult((await transition.mutateAsync({ id: orderId, state: 'ArrangingPayment' })).transitionOrderToState), 'Could not complete draft');
+    if (
+      !(await confirm({
+        title: 'Complete draft?',
+        message: 'The order moves to “Arranging payment”. You can then add a payment.',
+        confirmLabel: 'Complete',
+      }))
+    )
+      return;
+    const ok = await act(
+      'complete',
+      async () =>
+        unwrapResult((await transition.mutateAsync({ id: orderId, state: 'ArrangingPayment' })).transitionOrderToState),
+      'Could not complete draft',
+    );
     if (ok) {
       // Refetch (not just mark stale) before navigating: orders/detail redirects Draft orders back
       // here, so it must not render from a cached Draft copy.
@@ -196,8 +234,17 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
           )}
           {newCustomer ? (
             <View>
-              <TextRow label="First name" value={newCustomer.firstName} onChangeText={(t) => setNewCustomer({ ...newCustomer, firstName: t })} autoFocus />
-              <TextRow label="Last name" value={newCustomer.lastName} onChangeText={(t) => setNewCustomer({ ...newCustomer, lastName: t })} />
+              <TextRow
+                label="First name"
+                value={newCustomer.firstName}
+                onChangeText={(t) => setNewCustomer({ ...newCustomer, firstName: t })}
+                autoFocus
+              />
+              <TextRow
+                label="Last name"
+                value={newCustomer.lastName}
+                onChangeText={(t) => setNewCustomer({ ...newCustomer, lastName: t })}
+              />
               <TextRow
                 label="Email"
                 value={newCustomer.emailAddress}
@@ -210,14 +257,18 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
                   title="Create and set"
                   size="sm"
                   loading={busy === 'customer'}
-                  disabled={!newCustomer.firstName.trim() || !newCustomer.lastName.trim() || !newCustomer.emailAddress.trim()}
+                  disabled={
+                    !newCustomer.firstName.trim() || !newCustomer.lastName.trim() || !newCustomer.emailAddress.trim()
+                  }
                   onPress={async () => {
                     const input = {
                       firstName: newCustomer.firstName.trim(),
                       lastName: newCustomer.lastName.trim(),
                       emailAddress: newCustomer.emailAddress.trim(),
                     };
-                    const ok = await act('customer', async () => unwrapResult((await setCustomer.mutateAsync({ orderId, input })).setCustomerForDraftOrder));
+                    const ok = await act('customer', async () =>
+                      unwrapResult((await setCustomer.mutateAsync({ orderId, input })).setCustomerForDraftOrder),
+                    );
                     if (ok) setNewCustomer(null);
                   }}
                 />
@@ -226,8 +277,19 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
             </View>
           ) : canEdit ? (
             <ActionBar>
-              <Button title={order.customer ? 'Change customer' : 'Choose customer'} size="sm" variant="secondary" loading={busy === 'customer'} onPress={chooseCustomer} />
-              <Button title="New customer" size="sm" variant="ghost" onPress={() => setNewCustomer({ firstName: '', lastName: '', emailAddress: '' })} />
+              <Button
+                title={order.customer ? 'Change customer' : 'Choose customer'}
+                size="sm"
+                variant="secondary"
+                loading={busy === 'customer'}
+                onPress={chooseCustomer}
+              />
+              <Button
+                title="New customer"
+                size="sm"
+                variant="ghost"
+                onPress={() => setNewCustomer({ firstName: '', lastName: '', emailAddress: '' })}
+              />
             </ActionBar>
           ) : null}
         </Section>
@@ -242,9 +304,12 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
               disabled={!canAdjustLines || busy === `line-${l.id}`}
               onChange={(q) => {
                 if (q > 0) return void changeQuantity(l.id, q);
-                void confirm({ title: 'Remove line?', message: l.productVariant.name, confirmLabel: 'Remove', destructive: true }).then(
-                  (ok) => ok && changeQuantity(l.id, 0),
-                );
+                void confirm({
+                  title: 'Remove line?',
+                  message: l.productVariant.name,
+                  confirmLabel: 'Remove',
+                  destructive: true,
+                }).then((ok) => ok && changeQuantity(l.id, 0));
               }}
             />
           ))}
@@ -295,7 +360,13 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
                   chevron={false}
                   onPress={
                     canEdit && !selected && !busy
-                      ? () => void act('shipping', async () => unwrapResult((await setShippingMethod.mutateAsync({ orderId, shippingMethodId: m.id })).setDraftOrderShippingMethod))
+                      ? () =>
+                          void act('shipping', async () =>
+                            unwrapResult(
+                              (await setShippingMethod.mutateAsync({ orderId, shippingMethodId: m.id }))
+                                .setDraftOrderShippingMethod,
+                            ),
+                          )
                       : undefined
                   }
                 />
@@ -324,7 +395,13 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
           ))}
           {canEdit ? (
             <View>
-              <TextRow label="Coupon code" value={coupon} onChangeText={setCoupon} autoCapitalize="characters" placeholder="Enter a code" />
+              <TextRow
+                label="Coupon code"
+                value={coupon}
+                onChangeText={setCoupon}
+                autoCapitalize="characters"
+                placeholder="Enter a code"
+              />
               <ActionBar>
                 <Button
                   title="Apply"
@@ -335,7 +412,11 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
                   onPress={async () => {
                     const ok = await act(
                       'coupon',
-                      async () => unwrapResult((await applyCoupon.mutateAsync({ orderId, couponCode: coupon.trim() })).applyCouponCodeToDraftOrder),
+                      async () =>
+                        unwrapResult(
+                          (await applyCoupon.mutateAsync({ orderId, couponCode: coupon.trim() }))
+                            .applyCouponCodeToDraftOrder,
+                        ),
                       'Coupon not applied',
                     );
                     if (ok) setCoupon('');
@@ -360,7 +441,13 @@ function DraftEditor({ order, refetch, refreshing }: { order: Draft; refetch: ()
 
         <DraftCustomFields key={order.updatedAt} order={order} canEdit={canEdit} onSaved={refresh} />
 
-        {canComplete ? <Button title="Complete draft" loading={busy === 'complete'} onPress={complete} /> : null}
+        {canComplete ? (
+          <Section>
+            <View style={{ padding: spacing[3] }}>
+              <Button title="Complete draft" loading={busy === 'complete'} onPress={complete} />
+            </View>
+          </Section>
+        ) : null}
 
         <DeleteSection
           label="Delete draft"
@@ -450,21 +537,39 @@ function AddressEditor({
               }}
             />
           ) : null}
-          {sameAs ? <Button title="Same as shipping" size="sm" variant="secondary" loading={busy} onPress={() => void onSet(toAddressInput(sameAs))} /> : null}
+          {sameAs ? (
+            <Button
+              title="Same as shipping"
+              size="sm"
+              variant="secondary"
+              loading={busy}
+              onPress={() => void onSet(toAddressInput(sameAs))}
+            />
+          ) : null}
           <Button
             title={lines.length ? 'Edit' : 'Enter address'}
             size="sm"
             variant="secondary"
             onPress={() => setEditing(lines.length ? toAddressValue(address) : { ...emptyAddress })}
           />
-          {lines.length ? <Button title="Unset" size="sm" variant="ghost" loading={busy} onPress={() => void onUnset()} /> : null}
+          {lines.length ? (
+            <Button title="Unset" size="sm" variant="ghost" loading={busy} onPress={() => void onUnset()} />
+          ) : null}
         </ActionBar>
       ) : null}
     </Section>
   );
 }
 
-function DraftCustomFields({ order, canEdit, onSaved }: { order: Draft; canEdit: boolean; onSaved: () => Promise<unknown> }) {
+function DraftCustomFields({
+  order,
+  canEdit,
+  onSaved,
+}: {
+  order: Draft;
+  canEdit: boolean;
+  onSaved: () => Promise<unknown>;
+}) {
   const { spacing } = useTheme();
   const defs = useCustomFields('Order');
   const save = useVendureMutation(SetDraftOrderCustomFieldsDocument);
@@ -483,20 +588,27 @@ function DraftCustomFields({ order, canEdit, onSaved }: { order: Draft; canEdit:
         }}
       />
       {canEdit && dirty ? (
-        <Button
-          title="Save custom fields"
-          size="sm"
-          loading={save.isPending}
-          onPress={async () => {
-            try {
-              await save.mutateAsync({ orderId: order.id, input: { id: order.id, customFields: customFieldsInput(defs, values).customFields } });
-              setDirty(false);
-              await onSaved();
-            } catch (e) {
-              alertError(e, 'Could not save custom fields');
-            }
-          }}
-        />
+        <Section>
+          <View style={{ padding: spacing[3] }}>
+            <Button
+              title="Save custom fields"
+              size="sm"
+              loading={save.isPending}
+              onPress={async () => {
+                try {
+                  await save.mutateAsync({
+                    orderId: order.id,
+                    input: { id: order.id, customFields: customFieldsInput(defs, values).customFields },
+                  });
+                  setDirty(false);
+                  await onSaved();
+                } catch (e) {
+                  alertError(e, 'Could not save custom fields');
+                }
+              }}
+            />
+          </View>
+        </Section>
       ) : null}
     </View>
   );

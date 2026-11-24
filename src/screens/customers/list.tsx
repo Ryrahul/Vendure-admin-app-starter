@@ -12,7 +12,7 @@ import { useVendureInfiniteList } from '@/api/hooks';
 import { usePermissions } from '@/api/permissions';
 import { InlineError } from '@/components/inline-error';
 import { ListRow } from '@/components/list-row';
-import { FilterChips, HeaderIconButton } from '@/components/screen-kit';
+import { FilterChips, HeaderIconButton, LIST_TUNING } from '@/components/screen-kit';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SearchField } from '@/components/search-field';
 import { groupedRowStyle } from '@/components/section';
@@ -76,6 +76,7 @@ export function CustomerListScreen() {
         }}
       />
       <FlatList
+        {...LIST_TUNING}
         contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="on-drag"
         data={items}

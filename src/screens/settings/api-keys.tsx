@@ -122,13 +122,19 @@ function ApiKeyForm({
   const translation = apiKey?.translations.find((t) => t.languageCode === language) ?? apiKey?.translations[0];
 
   const [name, setName] = useState(translation?.name ?? apiKey?.name ?? '');
-  const [roles, setRoles] = useState<Picked[]>(apiKey?.user.roles.map((r) => ({ id: r.id, label: roleLabel(r) })) ?? []);
+  const [roles, setRoles] = useState<Picked[]>(
+    apiKey?.user.roles.map((r) => ({ id: r.id, label: roleLabel(r) })) ?? [],
+  );
   const [cf, setCf] = useState(() => customFieldValues(defs, apiKey?.customFields, translation));
 
   const canEdit = apiKey ? can('UpdateApiKey') : can('CreateApiKey');
   const roleOptions = isSuperAdmin
     ? undefined
-    : (ownRoles.data?.activeAdministrator?.user.roles ?? []).map((r) => ({ id: r.id, title: roleLabel(r), code: r.code }));
+    : (ownRoles.data?.activeAdministrator?.user.roles ?? []).map((r) => ({
+        id: r.id,
+        title: roleLabel(r),
+        code: r.code,
+      }));
 
   const save = async () => {
     if (!name.trim()) return alertError(new Error('Name is required.'), 'Missing name');
@@ -197,10 +203,15 @@ function ApiKeyForm({
         {secret && onSecret ? <SecretSection secret={secret} onDone={() => onSecret(null)} /> : null}
         <Section
           title="General"
-          footer={apiKey ? undefined : 'The key’s secret is shown once, right after it is created.'}>
+          footer={
+            [
+              apiKey ? null : 'The key’s secret is shown once, right after it is created.',
+              isSuperAdmin ? null : 'Only roles assigned to your account are available.',
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined
+          }>
           <TextRow label="Name" value={name} onChangeText={edit(setName)} readOnly={!canEdit} autoFocus={!apiKey} />
-        </Section>
-        <Section title="Roles" footer={isSuperAdmin ? undefined : 'Only roles assigned to your account are available.'}>
           <MultiPickRow
             label="Roles"
             source={roleOptions ? undefined : rolePicker}
@@ -220,6 +231,13 @@ function ApiKeyForm({
             setDirty(true);
           }}
         />
+        {apiKey && can('UpdateApiKey') ? (
+          <Section footer="Rotating replaces the secret. Clients using the old key must be updated.">
+            <View style={{ padding: spacing[3] }}>
+              <Button title="Rotate key" variant="secondary" loading={rotate.isPending} onPress={doRotate} />
+            </View>
+          </Section>
+        ) : null}
         {apiKey ? (
           <Section title="Info">
             <ValueRow label="Lookup ID" value={apiKey.lookupId} mono />
@@ -227,13 +245,6 @@ function ApiKeyForm({
             <ValueRow label="Last used" value={apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'Never'} />
             <ValueRow label="Created" value={formatDate(apiKey.createdAt)} />
             <ValueRow label="Updated" value={formatDate(apiKey.updatedAt)} />
-          </Section>
-        ) : null}
-        {apiKey && can('UpdateApiKey') ? (
-          <Section footer="Rotating replaces the secret. Clients using the old key must be updated.">
-            <View style={{ padding: spacing[3] }}>
-              <Button title="Rotate key" variant="secondary" loading={rotate.isPending} onPress={doRotate} />
-            </View>
           </Section>
         ) : null}
         {apiKey ? (

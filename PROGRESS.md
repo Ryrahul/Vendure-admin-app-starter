@@ -22,6 +22,12 @@ _Last updated: 2026-11-23_
   - The bundle has the default URL and no credentials.
 - **Firebase:** release 2.0.0 (2) distributed with `--groups testers`.
 - **2.0.1 (3)** (PR #21): the login server field starts empty, with no built-in URL. `EXPO_PUBLIC_VENDURE_ADMIN_API` still prefills it, and the last-used URL is remembered. The APK is `dist/vendure-admin-starter-2.0.1.apk`, 105,314,094 B, sha256 `2d9630ad9223f4915a8e3b49e53afd3e648c27852d0d1a2b0eece50d48f4ee6e`. The bundle has no sastodeal URL, password or token. Firebase release 2.0.1 (3) went out with `--groups testers`.
+- **2.0.2 (4)** (PR #22, the polish pass from Rahul's device testing):
+  - Native slide transitions and freezeOnBlur/enableFreeze.
+  - Screen bodies mount after the push transition (useAfterTransition), with skeleton loading states.
+  - FlatList tuning, press feedback, and a layout sweep of every screen.
+  - APK `dist/vendure-admin-starter-2.0.2.apk`, 106,118,282 B, sha256 `6c83b315d0f92eab9435074d663a50ced52bb3eb2af77080c703743e3f9ab7ff`. The bundle has no sastodeal URL, password or token.
+  - Firebase 2.0.2 (4) went out with `--groups testers`. Not verified on a device.
 - **v2 follow-ups:**
   - Custom fields: relation editing only for known entities (Asset, Product, Variant, Customer, CustomerGroup, FacetValue, Collection); struct fields are read-only.
   - Not done: multi-language translation editing, option-group based variant generation, drag-and-drop ordering, focal point.

@@ -44,7 +44,12 @@ export function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, { padding: spacing[6], gap: spacing[6] }]}>
           <View style={{ gap: spacing[2] }}>
-            <View style={[styles.brandMark, { backgroundColor: colors.brand, borderRadius: radius.md }]} />
+            <View
+              style={[
+                styles.brandMark,
+                { backgroundColor: colors.brand, borderRadius: radius.md, marginBottom: spacing[2] },
+              ]}
+            />
             <Text variant="title">Sign in to Vendure</Text>
             <Text variant="body" color="mutedForeground">
               Connect to any Vendure server with an administrator account.
@@ -108,5 +113,5 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   content: { flexGrow: 1, justifyContent: 'center', maxWidth: 520, width: '100%', alignSelf: 'center' },
   // Brand moment: a small Vendure Blue mark (brand color is rationed to identity).
-  brandMark: { width: 28, height: 28, marginBottom: 8 },
+  brandMark: { width: 28, height: 28 },
 });
