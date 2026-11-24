@@ -8,7 +8,12 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { ModifyOrderDocument, OrderDetailDocument, OrderHistoryDocument, TransitionOrderToStateDocument } from '@/api/documents/orders';
+import {
+  ModifyOrderDocument,
+  OrderDetailDocument,
+  OrderHistoryDocument,
+  TransitionOrderToStateDocument,
+} from '@/api/documents/orders';
 import { useVendureMutation, useVendureQuery } from '@/api/hooks';
 import { unwrapResult, useInvalidate } from '@/api/mutations';
 import { openPicker } from '@/api/picker';
@@ -34,6 +39,7 @@ type Preview = Extract<ModifyOrderMutation['modifyOrder'], { __typename: 'Order'
 type Stranded = { orderId: string; code: string; target: string; message: string };
 
 export function ModifyOrderScreen({ id }: { id: string }) {
+  const { spacing } = useTheme();
   const query = useVendureQuery(OrderDetailDocument, { id });
   const history = useVendureQuery(OrderHistoryDocument, {
     id,
@@ -49,9 +55,11 @@ export function ModifyOrderScreen({ id }: { id: string }) {
     <QueryBoundary query={query} pick={(d) => d.order} noun="order">
       {(order) =>
         order.state !== 'Modifying' ? (
-          <View style={{ padding: 16 }}>
+          <View style={{ padding: spacing[4] }}>
             <Stack.Screen options={{ title: 'Modify order' }} />
-            <InlineError message={`Order ${order.code} is ${humanizeState(order.state)}, not Modifying. Start a modification from the order.`} />
+            <InlineError
+              message={`Order ${order.code} is ${humanizeState(order.state)}, not Modifying. Start a modification from the order.`}
+            />
           </View>
         ) : (
           <ModifyForm
@@ -79,7 +87,9 @@ function StrandedModification({ stranded, onRetried }: { stranded: Stranded; onR
   const [message, setMessage] = useState(stranded.message);
   const retry = async () => {
     try {
-      unwrapResult((await transition.mutateAsync({ id: stranded.orderId, state: stranded.target })).transitionOrderToState);
+      unwrapResult(
+        (await transition.mutateAsync({ id: stranded.orderId, state: stranded.target })).transitionOrderToState,
+      );
       await invalidate(...ORDER_DOCS);
       onRetried();
       router.back();
@@ -93,10 +103,16 @@ function StrandedModification({ stranded, onRetried }: { stranded: Stranded; onR
       <InlineError
         message={`The modification was applied, but the order could not move to ${humanizeState(stranded.target)}: ${message}\nDo not modify again; return the order to ${humanizeState(stranded.target)} instead, or change its state from the order.`}
       />
-      <View style={{ gap: spacing[3] }}>
-        <Button title={`Return order to ${humanizeState(stranded.target)}`} loading={transition.isPending} onPress={retry} />
-        <Button title="Back to order" variant="ghost" disabled={transition.isPending} onPress={() => router.back()} />
-      </View>
+      <Section>
+        <View style={{ padding: spacing[3], gap: spacing[2] }}>
+          <Button
+            title={`Return order to ${humanizeState(stranded.target)}`}
+            loading={transition.isPending}
+            onPress={retry}
+          />
+          <Button title="Back to order" variant="ghost" disabled={transition.isPending} onPress={() => router.back()} />
+        </View>
+      </Section>
     </FormScroll>
   );
 }
@@ -117,18 +133,24 @@ function ModifyForm({
   const modify = useVendureMutation(ModifyOrderDocument);
   const transition = useVendureMutation(TransitionOrderToStateDocument);
 
-  const [quantities, setQuantities] = useState<Record<string, number>>(() => Object.fromEntries(order.lines.map((l) => [l.id, l.quantity])));
+  const [quantities, setQuantities] = useState<Record<string, number>>(() =>
+    Object.fromEntries(order.lines.map((l) => [l.id, l.quantity])),
+  );
   const [added, setAdded] = useState<{ id: string; title: string; quantity: number }[]>([]);
   const [note, setNote] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   // Fallback when the history has no "→ Modifying" entry: the user picks the state to return to.
   const [chosenState, setChosenState] = useState<string | null>(null);
-  const returnOptions = order.nextStates.filter((s) => s !== 'Modifying' && s !== 'Cancelled' && s !== 'ArrangingAdditionalPayment');
+  const returnOptions = order.nextStates.filter(
+    (s) => s !== 'Modifying' && s !== 'Cancelled' && s !== 'ArrangingAdditionalPayment',
+  );
   const historyMissing = !history.loading && !history.error && !history.state;
   const previousState = history.state ?? (historyMissing ? (chosenState ?? undefined) : undefined);
 
-  const adjust = order.lines.filter((l) => quantities[l.id] !== l.quantity).map((l) => ({ orderLineId: l.id, quantity: quantities[l.id] ?? 0 }));
+  const adjust = order.lines
+    .filter((l) => quantities[l.id] !== l.quantity)
+    .map((l) => ({ orderLineId: l.id, quantity: quantities[l.id] ?? 0 }));
   const addItems = added.filter((a) => a.quantity > 0).map((a) => ({ productVariantId: a.id, quantity: a.quantity }));
   const changed = adjust.length > 0 || addItems.length > 0;
   const input = {
@@ -258,13 +280,15 @@ function ModifyForm({
                 const picked = await openPicker({ title: 'Add item', source: variantPicker });
                 const v = picked?.[0];
                 if (!v) return;
-                setAdded((prev) => (prev.some((x) => x.id === v.id) ? prev : [...prev, { id: v.id, title: v.title, quantity: 1 }]));
+                setAdded((prev) =>
+                  prev.some((x) => x.id === v.id) ? prev : [...prev, { id: v.id, title: v.title, quantity: 1 }],
+                );
                 reset();
               }}
             />
           </View>
         </Section>
-        <Section title="Note">
+        <Section>
           <TextRow label="Note (optional)" value={note} onChangeText={setNote} multiline />
         </Section>
         {preview ? (
@@ -281,7 +305,10 @@ function ModifyForm({
         ) : null}
         {history.loading ? (
           <Section title="Return state">
-            <ListRow title="Loading order history…" subtitle="Needed to find the state the order was in before Modifying." />
+            <ListRow
+              title="Loading order history…"
+              subtitle="Needed to find the state the order was in before Modifying."
+            />
           </Section>
         ) : history.error ? (
           <Section title="Return state">
@@ -291,7 +318,9 @@ function ModifyForm({
             </View>
           </Section>
         ) : historyMissing ? (
-          <Section title="Return state" footer="The history does not show the state before Modifying. Choose where the order goes afterwards.">
+          <Section
+            title="Return state"
+            footer="The history does not show the state before Modifying. Choose where the order goes afterwards.">
             <SelectRow
               label="Return to"
               value={chosenState}
@@ -300,19 +329,21 @@ function ModifyForm({
             />
           </Section>
         ) : null}
-        <View style={{ gap: spacing[3] }}>
-          {preview ? (
-            <Button title="Apply modification" loading={busy} disabled={!target} onPress={apply} />
-          ) : (
-            <Button title="Preview changes" loading={busy} disabled={!changed} onPress={runPreview} />
-          )}
-          <Button
-            title={previousState ? `Cancel (back to ${humanizeState(previousState)})` : 'Cancel modification'}
-            variant="ghost"
-            disabled={busy || !previousState}
-            onPress={cancelModification}
-          />
-        </View>
+        <Section>
+          <View style={{ padding: spacing[3], gap: spacing[2] }}>
+            {preview ? (
+              <Button title="Apply modification" loading={busy} disabled={!target} onPress={apply} />
+            ) : (
+              <Button title="Preview changes" loading={busy} disabled={!changed} onPress={runPreview} />
+            )}
+            <Button
+              title={previousState ? `Cancel (back to ${humanizeState(previousState)})` : 'Cancel modification'}
+              variant="ghost"
+              disabled={busy || !previousState}
+              onPress={cancelModification}
+            />
+          </View>
+        </Section>
       </FormScroll>
     </>
   );

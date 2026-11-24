@@ -7,6 +7,9 @@
  * - <SaveHeader>: header "Save" button bound to dirty/saving state
  * - <DeleteSection>: confirm-then-delete row at the bottom of a detail screen
  * - <QueryBoundary>: loading / error / not-found states for a detail query
+ *
+ * Lists and detail bodies mount after the push transition (useAfterTransition) and show a
+ * skeleton until then, so the native slide-in never waits on a heavy first render.
  */
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Stack, router, type Href } from 'expo-router';
@@ -33,6 +36,7 @@ import { groupedRowStyle, Section } from '@/components/section';
 import { Text } from '@/components/text';
 import { PAGE_SIZE } from '@/constants';
 import type { TypedDocumentString } from '@/gql/graphql';
+import { useAfterTransition } from '@/hooks/use-after-transition';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useTheme } from '@/theme';
 import { alertError, confirm } from '@/utils/confirm';
@@ -75,20 +79,41 @@ export function EntityListScreen<R, V, Item extends { id: string }>({
     term,
     keyExtra,
   ]);
+  const ready = useAfterTransition();
+  const items = ready ? list.items : [];
+
+  // React Compiler memoizes this, so rows don't re-render on search keystrokes or fetch-status changes.
+  const renderItem = ({ item, index }: { item: Item; index: number }) => (
+    <View style={groupedRowStyle(index, items.length, theme)}>
+      <ListRow {...row(item)} />
+    </View>
+  );
 
   return (
     <>
-      {createHref ? <Stack.Screen options={{ headerRight: () => <HeaderIconButton label={`New ${noun[0]}`} onPress={() => router.push(createHref)} /> }} /> : null}
+      {createHref ? (
+        <Stack.Screen
+          options={{
+            headerRight: () => <HeaderIconButton label={`New ${noun[0]}`} onPress={() => router.push(createHref)} />,
+          }}
+        />
+      ) : null}
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="on-drag"
-        data={list.items}
-        keyExtractor={(i) => i.id}
+        data={items}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        {...LIST_TUNING}
         contentContainerStyle={{ padding: spacing[4], flexGrow: 1 }}
         ListHeaderComponent={
           <View style={{ gap: spacing[3], paddingBottom: spacing[3] }}>
             {searchable ? (
-              <SearchField value={search} onChangeText={setSearch} placeholder={searchPlaceholder ?? `Search ${noun[1]}`} />
+              <SearchField
+                value={search}
+                onChangeText={setSearch}
+                placeholder={searchPlaceholder ?? `Search ${noun[1]}`}
+              />
             ) : null}
             {filters}
             {list.error && list.items.length ? <InlineError message={list.error.message} /> : null}
@@ -99,20 +124,18 @@ export function EntityListScreen<R, V, Item extends { id: string }>({
             ) : null}
           </View>
         }
-        renderItem={({ item, index }) => (
-          <View style={groupedRowStyle(index, list.items.length, theme)}>
-            <ListRow {...row(item)} />
-          </View>
-        )}
         onEndReachedThreshold={0.5}
         onEndReached={() => {
           if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
         }}
         refreshControl={
-          <RefreshControl refreshing={list.isRefetching && !list.isFetchingNextPage} onRefresh={() => void list.refetch()} />
+          <RefreshControl
+            refreshing={list.isRefetching && !list.isFetchingNextPage}
+            onRefresh={() => void list.refetch()}
+          />
         }
         ListEmptyComponent={
-          list.isLoading || (list.isFetching && !list.data) ? (
+          !ready || list.isLoading || (list.isFetching && !list.data) ? (
             <LoadingState label={`Loading ${noun[1]}…`} />
           ) : list.error ? (
             <ErrorState error={list.error} onRetry={() => void list.refetch()} />
@@ -129,13 +152,25 @@ export function EntityListScreen<R, V, Item extends { id: string }>({
           )
         }
         ListFooterComponent={
-          list.isFetchingNextPage ? <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} /> : undefined
+          list.isFetchingNextPage ? (
+            <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} />
+          ) : undefined
         }
       />
     </>
   );
 }
 
+const keyExtractor = (i: { id: string }) => i.id;
+
+/** FlatList windowing for paginated admin lists: a full first screen, small render batches. */
+export const LIST_TUNING = {
+  initialNumToRender: 12,
+  maxToRenderPerBatch: 10,
+  updateCellsBatchingPeriod: 50,
+  windowSize: 9,
+  removeClippedSubviews: Platform.OS === 'android',
+} as const;
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function HeaderIconButton({
@@ -149,8 +184,14 @@ export function HeaderIconButton({
   ios?: Parameters<typeof Icon>[0]['ios'];
   android?: Parameters<typeof Icon>[0]['android'];
 }) {
+  const { spacing } = useTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={10} onPress={onPress} style={{ padding: 4 }}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={10}
+      onPress={onPress}
+      style={({ pressed }) => ({ padding: spacing[1], opacity: pressed ? 0.5 : 1 })}>
       <Icon ios={ios} android={android} size={22} color="foreground" />
     </Pressable>
   );
@@ -209,7 +250,14 @@ export function SaveHeader({
               saving ? (
                 <ActivityIndicator color={colors.foreground} />
               ) : (
-                <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={!dirty} hitSlop={10} onPress={onSave}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  accessibilityState={{ disabled: !dirty }}
+                  disabled={!dirty}
+                  hitSlop={10}
+                  onPress={onSave}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
                   <Text variant="bodyMedium" color={dirty ? 'foreground' : 'mutedForeground'}>
                     {label}
                   </Text>
@@ -235,11 +283,12 @@ export function DeleteSection({
   onDelete: () => Promise<unknown>;
   hidden?: boolean;
 }) {
+  const { spacing } = useTheme();
   const [busy, setBusy] = useState(false);
   if (hidden) return null;
   return (
     <Section>
-      <View style={{ padding: 12 }}>
+      <View style={{ padding: spacing[3] }}>
         <Button
           title={label}
           variant="destructive"
@@ -274,7 +323,8 @@ export function QueryBoundary<T, D>({
   noun: string;
   children: (data: D) => ReactNode;
 }) {
-  if (query.isLoading) return <LoadingState label={`Loading ${noun}…`} />;
+  const ready = useAfterTransition();
+  if (query.isLoading || (!ready && query.data)) return <LoadingState variant="form" label={`Loading ${noun}…`} />;
   const value = query.data ? pick(query.data) : undefined;
   if (value == null) {
     return query.error ? (
@@ -307,14 +357,15 @@ export function FilterChips<T extends string>({
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(o.value)}
-            style={{
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
               paddingHorizontal: spacing[3],
               paddingVertical: spacing[1.5],
               borderRadius: radius.full,
               borderWidth: 1,
               borderColor: active ? colors.primary : colors.border,
               backgroundColor: active ? colors.primary : colors.surfaceRaised,
-            }}>
+            })}>
             <Text variant="label" color={active ? 'primaryForeground' : 'foreground'}>
               {o.label}
             </Text>

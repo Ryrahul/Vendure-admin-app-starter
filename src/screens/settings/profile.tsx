@@ -23,7 +23,12 @@ export function ProfileScreen() {
   return (
     <QueryBoundary query={query} pick={(d) => d.activeAdministrator} noun="profile">
       {(admin) => (
-        <ProfileForm key={admin.updatedAt} admin={admin} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <ProfileForm
+          key={admin.updatedAt}
+          admin={admin}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
@@ -47,9 +52,11 @@ function ProfileForm({ admin, refetch, refreshing }: { admin: Admin; refetch: ()
   const mismatch = !!password && !!confirmPassword && password !== confirmPassword;
 
   const save = async () => {
-    if (!firstName.trim() || !lastName.trim()) return alertError(new Error('First and last name are required.'), 'Missing name');
+    if (!firstName.trim() || !lastName.trim())
+      return alertError(new Error('First and last name are required.'), 'Missing name');
     if (!email.trim()) return alertError(new Error('Email address is required.'), 'Missing email');
-    if (password && password !== confirmPassword) return alertError(new Error('The passwords don’t match.'), 'Check password');
+    if (password && password !== confirmPassword)
+      return alertError(new Error('The passwords don’t match.'), 'Check password');
     const { customFields } = customFieldsInput(defs, cf);
     try {
       await update.mutateAsync({
@@ -64,7 +71,12 @@ function ProfileForm({ admin, refetch, refreshing }: { admin: Admin; refetch: ()
       setPassword('');
       setConfirmPassword('');
       setDirty(false);
-      await invalidate(ProfileDetailDocument, CurrentUserDocument, AdministratorListDocument, AdministratorDetailDocument);
+      await invalidate(
+        ProfileDetailDocument,
+        CurrentUserDocument,
+        AdministratorListDocument,
+        AdministratorDetailDocument,
+      );
     } catch (e) {
       alertError(e, 'Could not save');
     }
@@ -74,7 +86,7 @@ function ProfileForm({ admin, refetch, refreshing }: { admin: Admin; refetch: ()
     <>
       <SaveHeader dirty={dirty} saving={update.isPending} onSave={save} />
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
-        <Section title="Profile">
+        <Section title="General">
           <TextRow label="First name" value={firstName} onChangeText={edit(setFirstName)} />
           <TextRow label="Last name" value={lastName} onChangeText={edit(setLastName)} />
           <TextRow
@@ -88,7 +100,7 @@ function ProfileForm({ admin, refetch, refreshing }: { admin: Admin; refetch: ()
             autoComplete="email"
           />
         </Section>
-        <Section title="Change password" footer="Leave empty to keep your current password.">
+        <Section title="Password" footer="Leave empty to keep your current password.">
           <TextRow
             label="New password"
             value={password}
@@ -119,7 +131,7 @@ function ProfileForm({ admin, refetch, refreshing }: { admin: Admin; refetch: ()
             setDirty(true);
           }}
         />
-        <Section title="Account">
+        <Section title="Info">
           <ValueRow label="Roles" value={admin.user.roles.map((r) => roleLabel(r)).join(', ')} />
           <ValueRow label="Last sign-in" value={admin.user.lastLogin ? formatDate(admin.user.lastLogin) : '—'} />
           <ValueRow label="Created" value={formatDate(admin.createdAt)} />

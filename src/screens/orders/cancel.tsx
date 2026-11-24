@@ -37,7 +37,8 @@ function CancelForm({ order }: { order: OrderDetail }) {
     if (!ready) return;
     const ok = await confirm({
       title: whole ? `Cancel order ${order.code}?` : `Cancel ${selected} item(s)?`,
-      message: 'Cancelled items are returned to stock. This cannot be undone. Settled payments must be refunded separately.',
+      message:
+        'Cancelled items are returned to stock. This cannot be undone. Settled payments must be refunded separately.',
       confirmLabel: whole ? 'Cancel order' : 'Cancel items',
       destructive: true,
     });
@@ -68,7 +69,13 @@ function CancelForm({ order }: { order: OrderDetail }) {
 
   return (
     <>
-      <SaveHeader title={`Cancel ${order.code}`} dirty={ready} saving={cancel.isPending} onSave={submit} label="Cancel…" />
+      <SaveHeader
+        title={`Cancel ${order.code}`}
+        dirty={ready}
+        saving={cancel.isPending}
+        onSave={submit}
+        label="Cancel…"
+      />
       <FormScroll>
         <Section>
           <SwitchRow
@@ -79,7 +86,19 @@ function CancelForm({ order }: { order: OrderDetail }) {
               setCancelShipping(on);
             }}
           />
-          <SwitchRow label="Cancel shipping" hint="Removes the shipping charge as well." value={cancelShipping} onValueChange={setCancelShipping} />
+          <SwitchRow
+            label="Cancel shipping"
+            hint="Removes the shipping charge as well."
+            value={cancelShipping}
+            onValueChange={setCancelShipping}
+          />
+          <TextRow
+            label="Reason (optional)"
+            value={reason}
+            onChangeText={setReason}
+            multiline
+            placeholder="Why is this being cancelled?"
+          />
         </Section>
         {!whole ? (
           <Section title={`Items to cancel (${selected})`}>
@@ -97,9 +116,6 @@ function CancelForm({ order }: { order: OrderDetail }) {
               ))}
           </Section>
         ) : null}
-        <Section title="Reason">
-          <TextRow label="Reason (optional)" value={reason} onChangeText={setReason} multiline placeholder="Why is this being cancelled?" />
-        </Section>
       </FormScroll>
     </>
   );

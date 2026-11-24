@@ -137,7 +137,13 @@ export function NumberRow({
         const cleaned = integer ? t.replace(/[^0-9-]/g, '') : t.replace(/[^0-9.,-]/g, '');
         const n = Number(cleaned.replace(',', '.'));
         const next =
-          cleaned.trim() === '' || cleaned === '-' ? emptyValue : Number.isNaN(n) ? draft.emitted : integer ? Math.trunc(n) : n;
+          cleaned.trim() === '' || cleaned === '-'
+            ? emptyValue
+            : Number.isNaN(n)
+              ? draft.emitted
+              : integer
+                ? Math.trunc(n)
+                : n;
         setDraft({ text: cleaned, emitted: next });
         onChange(next);
       }}
@@ -278,7 +284,10 @@ export function DateRow({
               onValueChange={(_, d) => !readOnly && onChange(d.toISOString())}
             />
           ) : (
-            <Pressable accessibilityRole="button" onPress={() => !readOnly && onChange(new Date().toISOString())}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => !readOnly && onChange(new Date().toISOString())}
+              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
               <Text variant="bodyMedium" color="mutedForeground">
                 Not set
               </Text>
@@ -293,7 +302,11 @@ export function DateRow({
   return (
     <FieldShell label={label} hint={hint} inline>
       <View style={[styles.inline, { gap: spacing[2] }]}>
-        <Pressable accessibilityRole="button" disabled={readOnly} onPress={() => setStep('date')}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={readOnly}
+          onPress={() => setStep('date')}
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
           <Text variant="bodyMedium" color={value ? 'foreground' : 'mutedForeground'}>
             {value ? formatDate(value) : 'Not set'}
           </Text>
@@ -318,7 +331,12 @@ export function DateRow({
 
 function ClearButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Clear" hitSlop={8} onPress={onPress}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Clear"
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
       <Icon ios="xmark.circle.fill" android="cancel" size={18} />
     </Pressable>
   );

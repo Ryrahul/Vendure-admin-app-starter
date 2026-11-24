@@ -61,6 +61,7 @@ function formatDuration(ms: number) {
 }
 
 export function JobListScreen() {
+  const { spacing } = useTheme();
   const { can } = usePermissions();
   const invalidate = useInvalidate();
   const [queue, setQueue] = useState('all');
@@ -111,7 +112,7 @@ export function JobListScreen() {
       searchable={false}
       keyExtra={`${queue}|${state}`}
       filters={
-        <View style={{ gap: 12 }}>
+        <View style={{ gap: spacing[3] }}>
           {can('UpdateCatalog', 'UpdateProduct') ? (
             <Section footer={hasActive ? 'Jobs are running; this list refreshes automatically.' : undefined}>
               <ListRow
@@ -163,6 +164,7 @@ export function JobListScreen() {
 const humanizeState = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 
 export function JobDetailScreen({ id }: { id: string }) {
+  const { spacing } = useTheme();
   const { can } = usePermissions();
   const invalidate = useInvalidate();
   const query = useVendureQuery(
@@ -179,22 +181,27 @@ export function JobDetailScreen({ id }: { id: string }) {
         {(job) => (
           <FormScroll refreshing={query.isRefetching} onRefresh={() => void query.refetch()}>
             <Section title="Status">
-              <ListRow title={humanizeQueue(job.queueName)} code={job.queueName} trailing={<StatusBadge label={humanizeState(job.state)} tone={jobStateTone[job.state]} />} />
+              <ListRow
+                title={humanizeQueue(job.queueName)}
+                code={job.queueName}
+                trailing={<StatusBadge label={humanizeState(job.state)} tone={jobStateTone[job.state]} />}
+              />
               <ValueRow label="Progress" value={`${Math.round(job.progress)}%`} />
               <ValueRow label="Attempts" value={`${job.attempts} of ${job.retries + 1}`} />
               <ValueRow label="Duration" value={job.isSettled ? formatDuration(job.duration) : '—'} />
             </Section>
-            <Section title="Timestamps">
+            {job.error != null ? <JsonSection title="Error" value={job.error} tone="destructive" /> : null}
+            <JsonSection title="Result" value={job.result} />
+            <JsonSection title="Data" value={job.data} />
+            <Section title="Info">
+              <ValueRow label="ID" value={job.id} mono />
               <ValueRow label="Created" value={formatDate(job.createdAt)} />
               <ValueRow label="Started" value={formatDate(job.startedAt)} />
               <ValueRow label="Settled" value={formatDate(job.settledAt)} />
             </Section>
-            {job.error != null ? <JsonSection title="Error" value={job.error} tone="destructive" /> : null}
-            <JsonSection title="Result" value={job.result} />
-            <JsonSection title="Data" value={job.data} />
             {!job.isSettled && can('DeleteSettings', 'DeleteSystem') ? (
               <Section>
-                <View style={{ padding: 12 }}>
+                <View style={{ padding: spacing[3] }}>
                   <Button
                     title="Cancel job"
                     variant="destructive"

@@ -40,7 +40,14 @@ export function CustomerGroupDetailScreen({ id }: { id: string }) {
   if (id === 'new') return <GroupForm />;
   return (
     <QueryBoundary query={query} pick={(d) => d.customerGroup} noun="customer group">
-      {(group) => <GroupForm key={group.updatedAt} group={group} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(group) => (
+        <GroupForm
+          key={group.updatedAt}
+          group={group}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
@@ -98,6 +105,7 @@ function GroupForm({ group, refetch, refreshing }: { group?: Group; refetch?: ()
             autoFocus={!group}
           />
         </Section>
+        {group ? <Members groupId={group.id} canEdit={can('UpdateCustomerGroup')} /> : null}
         <CustomFieldsSection
           defs={defs}
           values={cf}
@@ -107,7 +115,6 @@ function GroupForm({ group, refetch, refreshing }: { group?: Group; refetch?: ()
             setDirty(true);
           }}
         />
-        {group ? <Members groupId={group.id} canEdit={can('UpdateCustomerGroup')} /> : null}
         {group ? (
           <Section title="Info">
             <ValueRow label="ID" value={group.id} mono />
@@ -134,7 +141,10 @@ function GroupForm({ group, refetch, refreshing }: { group?: Group; refetch?: ()
 function Members({ groupId, canEdit }: { groupId: string; canEdit: boolean }) {
   const { spacing } = useTheme();
   const [take, setTake] = useState(50);
-  const query = useVendureQuery(CustomerGroupMembersDocument, { id: groupId, options: { take, sort: { lastName: 'ASC' as const } } });
+  const query = useVendureQuery(CustomerGroupMembersDocument, {
+    id: groupId,
+    options: { take, sort: { lastName: 'ASC' as const } },
+  });
   const invalidate = useInvalidate();
   const add = useVendureMutation(AddCustomersToGroupDocument);
   const remove = useVendureMutation(RemoveCustomersFromGroupDocument);
@@ -162,7 +172,15 @@ function Members({ groupId, canEdit }: { groupId: string; canEdit: boolean }) {
                 size="sm"
                 variant="ghost"
                 onPress={async () => {
-                  if (!(await confirm({ title: `Remove ${customerName(c)}?`, message: 'They stay a customer, just not in this group.', confirmLabel: 'Remove', destructive: true }))) return;
+                  if (
+                    !(await confirm({
+                      title: `Remove ${customerName(c)}?`,
+                      message: 'They stay a customer, just not in this group.',
+                      confirmLabel: 'Remove',
+                      destructive: true,
+                    }))
+                  )
+                    return;
                   try {
                     await remove.mutateAsync({ customerGroupId: groupId, customerIds: [c.id] });
                     await refresh();
@@ -175,31 +193,31 @@ function Members({ groupId, canEdit }: { groupId: string; canEdit: boolean }) {
           }
         />
       ))}
-      {page && page.items.length < page.totalItems ? (
+      {canEdit || (page && page.items.length < page.totalItems) ? (
         <ActionBar>
-          <Button title="Show more" size="sm" variant="ghost" onPress={() => setTake((t) => t + 50)} />
-        </ActionBar>
-      ) : null}
-      {canEdit ? (
-        <ActionBar>
-          <Button
-            title="Add members"
-            size="sm"
-            variant="secondary"
-            loading={add.isPending}
-            onPress={async () => {
-              const picked = await openPicker({ title: 'Add members', source: customerPicker, multiple: true });
-              const existing = new Set((page?.items ?? []).map((c) => c.id));
-              const ids = (picked ?? []).map((p) => p.id).filter((pid) => !existing.has(pid));
-              if (!ids.length) return;
-              try {
-                await add.mutateAsync({ customerGroupId: groupId, customerIds: ids });
-                await refresh();
-              } catch (e) {
-                alertError(e, 'Could not add members');
-              }
-            }}
-          />
+          {canEdit ? (
+            <Button
+              title="Add members"
+              size="sm"
+              variant="secondary"
+              loading={add.isPending}
+              onPress={async () => {
+                const picked = await openPicker({ title: 'Add members', source: customerPicker, multiple: true });
+                const existing = new Set((page?.items ?? []).map((c) => c.id));
+                const ids = (picked ?? []).map((p) => p.id).filter((pid) => !existing.has(pid));
+                if (!ids.length) return;
+                try {
+                  await add.mutateAsync({ customerGroupId: groupId, customerIds: ids });
+                  await refresh();
+                } catch (e) {
+                  alertError(e, 'Could not add members');
+                }
+              }}
+            />
+          ) : null}
+          {page && page.items.length < page.totalItems ? (
+            <Button title="Show more" size="sm" variant="ghost" onPress={() => setTake((t) => t + 50)} />
+          ) : null}
         </ActionBar>
       ) : null}
     </Section>

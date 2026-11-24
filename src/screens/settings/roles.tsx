@@ -80,7 +80,14 @@ export function RoleDetailScreen({ id }: { id: string }) {
   if (id === 'new') return <RoleForm />;
   return (
     <QueryBoundary query={query} pick={(d) => d.role} noun="role">
-      {(role) => <RoleForm key={role.updatedAt} role={role} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(role) => (
+        <RoleForm
+          key={role.updatedAt}
+          role={role}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
@@ -96,7 +103,9 @@ function RoleForm({ role, refetch, refreshing }: { role?: Role; refetch?: () => 
 
   const [code, setCode] = useState(role?.code ?? '');
   const [description, setDescription] = useState(role?.description ?? '');
-  const [channels, setChannels] = useState<Picked[]>(role?.channels.map((c) => ({ id: c.id, label: channelLabel(c.code) })) ?? []);
+  const [channels, setChannels] = useState<Picked[]>(
+    role?.channels.map((c) => ({ id: c.id, label: channelLabel(c.code) })) ?? [],
+  );
   const [permissions, setPermissions] = useState<Set<string>>(() => new Set(role?.permissions ?? []));
   const [cf, setCf] = useState(() => customFieldValues(defs, role?.customFields));
 
@@ -141,15 +150,21 @@ function RoleForm({ role, refetch, refreshing }: { role?: Role; refetch?: () => 
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
         <Section title="General" footer={builtIn ? 'Built-in roles can’t be changed.' : undefined}>
           <TextRow
+            label="Description"
+            value={description}
+            onChangeText={edit(setDescription)}
+            readOnly={!canEdit}
+            autoFocus={!role}
+          />
+          <TextRow
             label="Code"
             value={code}
             onChangeText={edit(setCode)}
             readOnly={!canEdit}
             autoCapitalize="none"
             autoCorrect={false}
-            autoFocus={!role}
+            mono
           />
-          <TextRow label="Description" value={description} onChangeText={edit(setDescription)} readOnly={!canEdit} />
           <MultiPickRow
             label="Channels"
             hint="The permissions apply in these channels."
@@ -291,7 +306,9 @@ function PermissionMatrix({
           const names = Object.values(g.byOp).map((d) => d!.name);
           const all = names.every((n) => value.has(n));
           return (
-            <View key={g.resource} style={{ paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[2] }}>
+            <View
+              key={g.resource}
+              style={{ paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[2] }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyMedium">{humanize(g.resource)}</Text>

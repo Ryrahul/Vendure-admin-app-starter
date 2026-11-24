@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vendure Admin",
     "slug": "vendure-admin-app-starter",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "vendureadmin",
@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "io.hyperce.vendureadmin",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "output": "single",

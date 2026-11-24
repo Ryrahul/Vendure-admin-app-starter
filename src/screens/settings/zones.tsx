@@ -25,12 +25,21 @@ import { Button } from '@/components/button';
 import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-fields-section';
 import { TextRow, ValueRow } from '@/components/form/fields';
 import { ListRow } from '@/components/list-row';
-import { DeleteSection, EntityListScreen, FormScroll, HeaderIconButton, QueryBoundary, SaveHeader } from '@/components/screen-kit';
+import {
+  DeleteSection,
+  EntityListScreen,
+  FormScroll,
+  HeaderIconButton,
+  QueryBoundary,
+  SaveHeader,
+} from '@/components/screen-kit';
 import { Section } from '@/components/section';
 import { StatusBadge } from '@/components/status-badge';
 import type { ZoneDetailQuery } from '@/gql/graphql';
 import { alertError, confirm } from '@/utils/confirm';
 import { formatDate } from '@/utils/format';
+
+const COLLAPSED_MEMBERS = 8;
 
 const canCreate = (can: (...p: string[]) => boolean) => can('CreateSettings', 'CreateZone');
 
@@ -40,7 +49,12 @@ export function ZoneListScreen() {
     <EntityListScreen
       document={ZoneListDocument}
       variables={(term, skip, take) => ({
-        options: { skip, take, sort: { name: 'ASC' as const }, ...(term ? { filter: { name: { contains: term } } } : {}) },
+        options: {
+          skip,
+          take,
+          sort: { name: 'ASC' as const },
+          ...(term ? { filter: { name: { contains: term } } } : {}),
+        },
       })}
       select={(r) => r.zones}
       noun={['zone', 'zones']}
@@ -58,7 +72,14 @@ export function ZoneDetailScreen({ id }: { id: string }) {
   if (id === 'new') return <ZoneForm />;
   return (
     <QueryBoundary query={query} pick={(d) => d.zone} noun="zone">
-      {(zone) => <ZoneForm key={zone.updatedAt} zone={zone} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(zone) => (
+        <ZoneForm
+          key={zone.updatedAt}
+          zone={zone}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
@@ -83,6 +104,8 @@ function ZoneForm({ zone, refetch, refreshing }: { zone?: Zone; refetch?: () => 
   const saving = create.isPending || update.isPending;
   const members = [...(zone?.members ?? draftMembers)].sort((a, b) => a.name.localeCompare(b.name));
   const busy = addMembers.isPending || removeMembers.isPending;
+  const [showAllMembers, setShowAllMembers] = useState(false);
+  const visibleMembers = showAllMembers ? members : members.slice(0, COLLAPSED_MEMBERS);
 
   const save = async () => {
     if (!name.trim()) return alertError(new Error('Name is required.'), 'Missing name');
@@ -115,7 +138,9 @@ function ZoneForm({ zone, refetch, refreshing }: { zone?: Zone; refetch?: () => 
     if (!picked) return;
     const added = picked.filter((p) => !existing.has(p.id));
     if (!zone) {
-      setDraftMembers(picked.map((p) => ({ __typename: 'Country', id: p.id, name: p.title, code: p.code ?? '', enabled: true })));
+      setDraftMembers(
+        picked.map((p) => ({ __typename: 'Country', id: p.id, name: p.title, code: p.code ?? '', enabled: true })),
+      );
       setDirty(true);
       return;
     }
@@ -171,22 +196,15 @@ function ZoneForm({ zone, refetch, refreshing }: { zone?: Zone; refetch?: () => 
             autoFocus={!zone}
           />
         </Section>
-        <CustomFieldsSection
-          defs={defs}
-          values={cf}
-          readOnly={!canEdit}
-          onChange={(k, v) => {
-            setCf((prev) => ({ ...prev, [k]: v }));
-            setDirty(true);
-          }}
-        />
         <Section
           title={`Members (${members.length})`}
-          action={canEdit ? <Button title="Add" size="sm" variant="ghost" loading={busy} onPress={pickMembers} /> : undefined}>
+          action={
+            canEdit ? <Button title="Add" size="sm" variant="ghost" loading={busy} onPress={pickMembers} /> : undefined
+          }>
           {members.length === 0 ? (
             <ListRow title="No members" subtitle="Add the countries this zone covers." />
           ) : (
-            members.map((m) => (
+            visibleMembers.map((m) => (
               <ListRow
                 key={m.id}
                 title={m.name}
@@ -207,7 +225,23 @@ function ZoneForm({ zone, refetch, refreshing }: { zone?: Zone; refetch?: () => 
               />
             ))
           )}
+          {members.length > COLLAPSED_MEMBERS ? (
+            <ListRow
+              title={showAllMembers ? 'Show less' : `Show all ${members.length}`}
+              chevron={false}
+              onPress={() => setShowAllMembers((v) => !v)}
+            />
+          ) : null}
         </Section>
+        <CustomFieldsSection
+          defs={defs}
+          values={cf}
+          readOnly={!canEdit}
+          onChange={(k, v) => {
+            setCf((prev) => ({ ...prev, [k]: v }));
+            setDirty(true);
+          }}
+        />
         {zone ? (
           <Section title="Info">
             <ValueRow label="ID" value={zone.id} mono />

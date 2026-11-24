@@ -1,6 +1,6 @@
 /**
- * Collection detail: create (optionally under `parentId`) and edit. General fields, assets,
- * filters (configurable operations), contents preview, custom fields, children, move, delete.
+ * Collection detail: create (optionally under `parentId`) and edit. General fields (incl. parent/move),
+ * filters (configurable operations), contents preview, children, assets, custom fields, info, delete.
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -92,7 +92,9 @@ function CollectionForm({
   const [name, setName] = useState(translation?.name ?? collection?.name ?? '');
   const [slug, setSlug] = useState(translation?.slug ?? collection?.slug ?? '');
   const [slugTouched, setSlugTouched] = useState(!!collection);
-  const [description, setDescription] = useState(() => descriptionToText(translation?.description ?? collection?.description));
+  const [description, setDescription] = useState(() =>
+    descriptionToText(translation?.description ?? collection?.description),
+  );
   const [descriptionEdited, setDescriptionEdited] = useState(false);
   const [isPrivate, setIsPrivate] = useState(collection?.isPrivate ?? false);
   const [inheritFilters, setInheritFilters] = useState(collection?.inheritFilters ?? true);
@@ -117,7 +119,9 @@ function CollectionForm({
     const missing = filters.flatMap((f) => missingArgs(f, filterDefs));
     if (missing.length) return alertError(new Error(`Fill in: ${missing.join(', ')}.`), 'Incomplete filter');
     const { customFields, translationCustomFields } = customFieldsInput(defs, cf);
-    const html = descriptionEdited ? textToHtml(description) : (translation?.description ?? collection?.description ?? '');
+    const html = descriptionEdited
+      ? textToHtml(description)
+      : (translation?.description ?? collection?.description ?? '');
     const common = {
       isPrivate,
       inheritFilters,
@@ -135,14 +139,25 @@ function CollectionForm({
     try {
       if (collection) {
         await update.mutateAsync({
-          input: { id: collection.id, ...common, translations: [{ ...(translation ? { id: translation.id } : {}), ...tr }] },
+          input: {
+            id: collection.id,
+            ...common,
+            translations: [{ ...(translation ? { id: translation.id } : {}), ...tr }],
+          },
         });
       } else {
-        const res = await create.mutateAsync({ input: { ...common, ...(parentId ? { parentId } : {}), translations: [tr] } });
+        const res = await create.mutateAsync({
+          input: { ...common, ...(parentId ? { parentId } : {}), translations: [tr] },
+        });
         router.replace(`/catalog/collections/${res.createCollection.id}`);
       }
       setDirty(false);
-      await invalidate(CollectionListDocument, CollectionDetailDocument, CollectionContentsDocument, PickCollectionsDocument);
+      await invalidate(
+        CollectionListDocument,
+        CollectionDetailDocument,
+        CollectionContentsDocument,
+        PickCollectionsDocument,
+      );
     } catch (e) {
       alertError(e, 'Could not save');
     }
@@ -159,7 +174,6 @@ function CollectionForm({
         hidden={!canEdit}
       />
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
-        {collection ? <ParentSection collection={collection} canMove={can('UpdateCatalog', 'UpdateCollection')} /> : null}
         <Section title={translation ? `General (${translation.languageCode})` : 'General'}>
           <TextRow
             label="Name"
@@ -183,6 +197,21 @@ function CollectionForm({
               edit(setSlug)(v);
             }}
           />
+          <SwitchRow
+            label="Private"
+            hint="Private collections are hidden from the Shop API."
+            value={isPrivate}
+            disabled={!canEdit}
+            onValueChange={edit(setIsPrivate)}
+          />
+          {collection ? <ParentRow collection={collection} canMove={can('UpdateCatalog', 'UpdateCollection')} /> : null}
+          <SwitchRow
+            label="Inherit filters"
+            hint="Also apply the parent collection's filters."
+            value={inheritFilters}
+            disabled={!canEdit}
+            onValueChange={edit(setInheritFilters)}
+          />
           <TextRow
             label="Description"
             hint={descriptionEdited ? 'Saved as simple paragraphs.' : undefined}
@@ -194,23 +223,7 @@ function CollectionForm({
               edit(setDescription)(v);
             }}
           />
-          <SwitchRow
-            label="Private"
-            hint="Private collections are hidden from the Shop API."
-            value={isPrivate}
-            disabled={!canEdit}
-            onValueChange={edit(setIsPrivate)}
-          />
-          <SwitchRow
-            label="Inherit filters"
-            hint="Also apply the parent collection's filters."
-            value={inheritFilters}
-            disabled={!canEdit}
-            onValueChange={edit(setInheritFilters)}
-          />
         </Section>
-
-        <AssetsEditor value={assets} onChange={edit(setAssets)} readOnly={!canEdit} />
 
         <OperationListEditor
           title="Filters"
@@ -220,7 +233,9 @@ function CollectionForm({
           readOnly={!canEdit}
           onChange={edit(setFilters)}
         />
-
+        {collection ? <Contents id={collection.id} /> : null}
+        {collection ? <Children collection={collection} canCreate={can('CreateCatalog', 'CreateCollection')} /> : null}
+        <AssetsEditor value={assets} onChange={edit(setAssets)} readOnly={!canEdit} />
         <CustomFieldsSection
           defs={defs}
           values={cf}
@@ -230,9 +245,6 @@ function CollectionForm({
             setDirty(true);
           }}
         />
-
-        {collection ? <Contents id={collection.id} /> : null}
-        {collection ? <Children collection={collection} canCreate={can('CreateCatalog', 'CreateCollection')} /> : null}
 
         {collection ? (
           <Section title="Info">
@@ -258,7 +270,7 @@ function CollectionForm({
 }
 
 /** Parent row with "Move": to the top level or under another collection. */
-function ParentSection({ collection, canMove }: { collection: Collection; canMove: boolean }) {
+function ParentRow({ collection, canMove }: { collection: Collection; canMove: boolean }) {
   const invalidate = useInvalidate();
   const moveMutation = useVendureMutation(MoveCollectionDocument);
   const rootId = collection.breadcrumbs[0]?.id;
@@ -270,8 +282,13 @@ function ParentSection({ collection, canMove }: { collection: Collection; canMov
 
   const moveTo = async (parentId: string, label: string) => {
     if (parentId === collection.parentId) return;
-    if (parentId === collection.id) return alertError(new Error('A collection cannot be its own parent.'), 'Could not move');
-    const ok = await confirm({ title: `Move “${collection.name}”?`, message: `It will be moved to ${label}.`, confirmLabel: 'Move' });
+    if (parentId === collection.id)
+      return alertError(new Error('A collection cannot be its own parent.'), 'Could not move');
+    const ok = await confirm({
+      title: `Move “${collection.name}”?`,
+      message: `It will be moved to ${label}.`,
+      confirmLabel: 'Move',
+    });
     if (!ok) return;
     try {
       await moveMutation.mutateAsync({ input: { collectionId: collection.id, parentId, index: 0 } });
@@ -295,20 +312,32 @@ function ParentSection({ collection, canMove }: { collection: Collection; canMov
   };
 
   return (
-    <Section>
-      <LinkRow
-        label="Parent"
-        value={isTopLevel ? 'Top level' : path || collection.parent?.name}
-        hint={canMove ? 'Tap to move this collection.' : undefined}
-        disabled={!canMove || moveMutation.isPending}
-        onPress={choose}
-      />
-    </Section>
+    <LinkRow
+      label="Parent"
+      value={isTopLevel ? 'Top level' : path || collection.parent?.name}
+      hint={canMove ? 'Tap to move this collection.' : undefined}
+      disabled={!canMove || moveMutation.isPending}
+      onPress={choose}
+    />
   );
 }
 
+/** Rows shown before "Show all" in long read-only lists. */
+const COLLAPSED_ROWS = 5;
+
+/**
+ * "Show all" / "Show less" toggle row, or null when the list is short. A plain function rather
+ * than a component, so <Section> drops it (no stray separator) when there is nothing to toggle.
+ */
+function showAllRow(count: number, expanded: boolean, onToggle: () => void, label = `Show all ${count}`) {
+  if (count <= COLLAPSED_ROWS) return null;
+  return <ListRow key="toggle" title={expanded ? 'Show less' : label} chevron={false} onPress={onToggle} />;
+}
+
 function Children({ collection, canCreate }: { collection: Collection; canCreate: boolean }) {
+  const [showAll, setShowAll] = useState(false);
   const children = collection.children ?? [];
+  const visible = showAll ? children : children.slice(0, COLLAPSED_ROWS);
   return (
     <Section
       title={`Sub-collections (${children.length})`}
@@ -318,15 +347,20 @@ function Children({ collection, canCreate }: { collection: Collection; canCreate
             title="Add"
             variant="ghost"
             size="sm"
-            onPress={() => router.push({ pathname: '/catalog/collections/[id]', params: { id: 'new', parentId: collection.id } })}
+            onPress={() =>
+              router.push({ pathname: '/catalog/collections/[id]', params: { id: 'new', parentId: collection.id } })
+            }
           />
         ) : undefined
       }>
       {children.length ? (
-        children.map((c) => <ListRow key={c.id} title={c.name} onPress={() => router.push(`/catalog/collections/${c.id}`)} />)
+        visible.map((c) => (
+          <ListRow key={c.id} title={c.name} onPress={() => router.push(`/catalog/collections/${c.id}`)} />
+        ))
       ) : (
         <ListRow title="No sub-collections" />
       )}
+      {showAllRow(children.length, showAll, () => setShowAll((v) => !v))}
     </Section>
   );
 }
@@ -334,8 +368,10 @@ function Children({ collection, canCreate }: { collection: Collection; canCreate
 /** Read-only preview of the variants the saved filters match. */
 function Contents({ id }: { id: string }) {
   const { spacing } = useTheme();
+  const [showAll, setShowAll] = useState(false);
   const query = useVendureQuery(CollectionContentsDocument, { id, options: { take: 10 } });
   const list = query.data?.collection?.productVariants;
+  const visible = showAll ? (list?.items ?? []) : (list?.items ?? []).slice(0, COLLAPSED_ROWS);
   return (
     <Section
       title={`Contents${list ? ` (${list.totalItems})` : ''}`}
@@ -344,17 +380,24 @@ function Contents({ id }: { id: string }) {
         <ListRow title="Loading…" />
       ) : list?.items.length ? (
         [
-          ...list.items.map((v) => (
+          ...visible.map((v) => (
             <ListRow
               key={v.id}
-              leading={<Thumbnail preview={v.featuredAsset?.preview ?? v.product.featuredAsset?.preview} size={36} />}
+              leading={
+                <Thumbnail
+                  preview={v.featuredAsset?.preview ?? v.product.featuredAsset?.preview}
+                  preset="thumb"
+                  size={40}
+                />
+              }
               title={v.name}
               code={v.sku}
               onPress={() => router.push(`/catalog/variants/${v.id}`)}
             />
           )),
-          list.totalItems > list.items.length ? (
-            <View key="more" style={{ padding: spacing[4] }}>
+          showAllRow(list.items.length, showAll, () => setShowAll((v) => !v), 'Show more'),
+          (showAll || list.items.length <= COLLAPSED_ROWS) && list.totalItems > list.items.length ? (
+            <View key="more" style={{ paddingHorizontal: spacing[4], paddingVertical: spacing[3] }}>
               <Text variant="caption" color="mutedForeground">
                 and {list.totalItems - list.items.length} more
               </Text>

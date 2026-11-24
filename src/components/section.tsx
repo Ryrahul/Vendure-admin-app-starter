@@ -43,7 +43,9 @@ export function Section({ title, action, footer, children, style }: SectionProps
         }}>
         {rows.map((child, i) => (
           <Fragment key={i}>
-            {i > 0 ? <View style={[styles.separator, { backgroundColor: colors.border, marginLeft: spacing[4] }]} /> : null}
+            {i > 0 ? (
+              <View style={[styles.separator, { backgroundColor: colors.border, marginLeft: spacing[4] }]} />
+            ) : null}
             {child}
           </Fragment>
         ))}

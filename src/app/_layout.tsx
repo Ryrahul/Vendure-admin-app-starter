@@ -4,6 +4,7 @@ import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { enableFreeze } from 'react-native-screens';
 
 import { VendureApiError } from '@/api/client';
 import { SessionProvider, useSession } from '@/api/session';
@@ -11,6 +12,8 @@ import { stackScreenOptions } from '@/components/stack-options';
 import { fontAssets, navigationTheme, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
+// Inactive screens and tabs don't re-render until they're shown again.
+enableFreeze(true);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,12 +51,17 @@ function RootNavigator() {
   return (
     <ThemeProvider value={navigationTheme(theme)}>
       <StatusBar style={theme.dark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Protected guard={isLoggedIn}>
           <Stack.Screen name="(app)" />
           <Stack.Screen
             name="picker"
-            options={{ ...stackScreenOptions(theme), headerShown: true, headerLargeTitleEnabled: false, presentation: 'modal' }}
+            options={{
+              ...stackScreenOptions(theme),
+              headerShown: true,
+              headerLargeTitleEnabled: false,
+              presentation: 'modal',
+            }}
           />
         </Stack.Protected>
         <Stack.Protected guard={!isLoggedIn}>

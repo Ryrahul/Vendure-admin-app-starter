@@ -1,7 +1,7 @@
 /**
  * Product variant detail: edit, or create for an existing product (id === 'new' + productId param).
  * Name, SKU, enabled, price, tax category, stock per location, inventory settings,
- * facet values, assets, custom fields; options are read-only (chosen at creation).
+ * assets, facet values, custom fields; options are read-only (chosen at creation).
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -25,6 +25,7 @@ import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-f
 import { LinkRow, MoneyRow, NumberRow, SelectRow, SwitchRow, TextRow, ValueRow } from '@/components/form/fields';
 import { DeleteSection, FormScroll, QueryBoundary, SaveHeader } from '@/components/screen-kit';
 import { ErrorState, LoadingState } from '@/components/screen-state';
+import { useAfterTransition } from '@/hooks/use-after-transition';
 import { Section } from '@/components/section';
 import type { GlobalFlag, VariantDetailQuery, VariantFormDataQuery, VariantProductQuery } from '@/gql/graphql';
 import { AssetsEditor, assetsInput, assetsValue } from '@/screens/assets/assets-editor';
@@ -48,9 +49,16 @@ export function VariantDetailScreen({ id, productId }: { id: string; productId?:
   const query = useVendureQuery(VariantDetailDocument, { id }, { enabled: !isNew });
   const formData = useVendureQuery(VariantFormDataDocument, undefined, { staleTime: 60_000 });
   const parent = useVendureQuery(VariantProductDocument, { id: productId ?? '' }, { enabled: isNew && !!productId });
+  const ready = useAfterTransition();
 
-  if (formData.isLoading) return <LoadingState label="Loading…" />;
-  if (!formData.data) return <ErrorState error={formData.error ?? new Error('Could not load the variant form.')} onRetry={() => void formData.refetch()} />;
+  if (formData.isLoading || !ready) return <LoadingState variant="form" label="Loading variant…" />;
+  if (!formData.data)
+    return (
+      <ErrorState
+        error={formData.error ?? new Error('Could not load the variant form.')}
+        onRetry={() => void formData.refetch()}
+      />
+    );
 
   if (isNew) {
     if (!productId) return <ErrorState error={new Error('Open “Add variant” from a product to create a variant.')} />;
@@ -165,7 +173,9 @@ function VariantForm({
         await update.mutateAsync({ input: { id: variant.id, ...common, translations } });
       } else if (productId) {
         const res = await create.mutateAsync({
-          input: [{ productId, ...common, translations, optionIds: groups.map((g) => optionIds[g.id]!).filter(Boolean) }],
+          input: [
+            { productId, ...common, translations, optionIds: groups.map((g) => optionIds[g.id]!).filter(Boolean) },
+          ],
         });
         const created = res.createProductVariants[0];
         if (created) router.replace(`/catalog/variants/${created.id}`);
@@ -188,15 +198,26 @@ function VariantForm({
         hidden={!canEdit}
       />
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
-        {productId ? (
-          <Section>
-            <LinkRow label="Product" value={productName} onPress={() => router.push(`/catalog/products/${productId}`)} />
-          </Section>
-        ) : null}
         <Section title={translation ? `General (${translation.languageCode})` : 'General'}>
           <TextRow label="Name" value={name} onChangeText={edit(setName)} readOnly={!canEdit} />
-          <TextRow label="SKU" value={sku} mono autoCapitalize="characters" autoCorrect={false} onChangeText={edit(setSku)} readOnly={!canEdit} autoFocus={!variant} />
+          <TextRow
+            label="SKU"
+            value={sku}
+            mono
+            autoCapitalize="characters"
+            autoCorrect={false}
+            onChangeText={edit(setSku)}
+            readOnly={!canEdit}
+            autoFocus={!variant}
+          />
           <SwitchRow label="Enabled" value={enabled} disabled={!canEdit} onValueChange={edit(setEnabled)} />
+          {productId ? (
+            <LinkRow
+              label="Product"
+              value={productName}
+              onPress={() => router.push(`/catalog/products/${productId}`)}
+            />
+          ) : null}
         </Section>
 
         {variant?.options.length ? (
@@ -223,7 +244,9 @@ function VariantForm({
 
         <Section
           title="Price"
-          footer={variant ? `${formatMoney(variant.priceWithTax, variant.currencyCode, precision)} incl. tax` : undefined}>
+          footer={
+            variant ? `${formatMoney(variant.priceWithTax, variant.currencyCode, precision)} incl. tax` : undefined
+          }>
           <MoneyRow
             label="Price"
             value={price}
@@ -276,12 +299,18 @@ function VariantForm({
             onValueChange={edit(setUseGlobalThreshold)}
           />
           {!useGlobalThreshold ? (
-            <NumberRow label="Out-of-stock threshold" integer value={threshold} readOnly={!canEdit} onChange={edit(setThreshold)} />
+            <NumberRow
+              label="Out-of-stock threshold"
+              integer
+              value={threshold}
+              readOnly={!canEdit}
+              onChange={edit(setThreshold)}
+            />
           ) : null}
         </Section>
 
-        <FacetValuesEditor value={facetValues} onChange={edit(setFacetValues)} readOnly={!canEdit} />
         <AssetsEditor value={assets} onChange={edit(setAssets)} readOnly={!canEdit} />
+        <FacetValuesEditor value={facetValues} onChange={edit(setFacetValues)} readOnly={!canEdit} />
         <CustomFieldsSection
           defs={defs}
           values={cf}

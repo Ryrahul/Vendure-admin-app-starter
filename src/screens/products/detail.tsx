@@ -1,6 +1,6 @@
 /**
  * Product detail: a full editor (create when id === 'new').
- * General fields, assets, facet values, custom fields, variants, option groups, channels, delete.
+ * General fields, variants, assets, facet values, option groups, channels, custom fields, info, delete.
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -48,13 +48,26 @@ export function ProductDetailScreen({ id }: { id: string }) {
     <QueryBoundary query={query} pick={(d) => d.product} noun="product">
       {(product) => (
         // Keyed on updatedAt so the form resets to server values after a save.
-        <ProductForm key={product.updatedAt} product={product} refetch={() => void query.refetch()} refreshing={query.isRefetching} />
+        <ProductForm
+          key={product.updatedAt}
+          product={product}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
       )}
     </QueryBoundary>
   );
 }
 
-function ProductForm({ product, refetch, refreshing }: { product?: Product; refetch?: () => void; refreshing?: boolean }) {
+function ProductForm({
+  product,
+  refetch,
+  refreshing,
+}: {
+  product?: Product;
+  refetch?: () => void;
+  refreshing?: boolean;
+}) {
   const { can } = usePermissions();
   const { currencyCode, precision } = useChannelInfo();
   const defs = useCustomFields('Product');
@@ -68,7 +81,9 @@ function ProductForm({ product, refetch, refreshing }: { product?: Product; refe
   const [name, setName] = useState(translation?.name ?? product?.name ?? '');
   const [slug, setSlug] = useState(translation?.slug ?? product?.slug ?? '');
   const [slugTouched, setSlugTouched] = useState(!!product);
-  const [description, setDescription] = useState(() => descriptionToText(translation?.description ?? product?.description));
+  const [description, setDescription] = useState(() =>
+    descriptionToText(translation?.description ?? product?.description),
+  );
   const [descriptionEdited, setDescriptionEdited] = useState(false);
   const [enabled, setEnabled] = useState(product?.enabled ?? true);
   const [assets, setAssets] = useState(() => assetsValue(product));
@@ -123,7 +138,13 @@ function ProductForm({ product, refetch, refreshing }: { product?: Product; refe
           input: {
             ...common,
             translations: [
-              { languageCode: 'en', name: name.trim(), slug: finalSlug, description: html, customFields: translationCustomFields },
+              {
+                languageCode: 'en',
+                name: name.trim(),
+                slug: finalSlug,
+                description: html,
+                customFields: translationCustomFields,
+              },
             ],
           },
         });
@@ -186,6 +207,13 @@ function ProductForm({ product, refetch, refreshing }: { product?: Product; refe
               edit(setSlug)(v);
             }}
           />
+          <SwitchRow
+            label="Enabled"
+            hint="Disabled products are hidden from the storefront."
+            value={enabled}
+            disabled={!canEdit}
+            onValueChange={edit(setEnabled)}
+          />
           <TextRow
             label="Description"
             hint={descriptionEdited ? 'Saved as simple paragraphs.' : undefined}
@@ -197,24 +225,44 @@ function ProductForm({ product, refetch, refreshing }: { product?: Product; refe
               edit(setDescription)(v);
             }}
           />
-          <SwitchRow
-            label="Enabled"
-            hint="Disabled products are hidden from the storefront."
-            value={enabled}
-            disabled={!canEdit}
-            onValueChange={edit(setEnabled)}
-          />
         </Section>
 
         {!product ? (
           <Section title="Default variant" footer="Add more variants after the product is created.">
-            <TextRow label="SKU" value={sku} mono autoCapitalize="characters" autoCorrect={false} onChangeText={edit(setSku)} />
-            <MoneyRow label="Price" value={price} currencyCode={currencyCode} precision={precision} onChange={edit(setPrice)} />
+            <TextRow
+              label="SKU"
+              value={sku}
+              mono
+              autoCapitalize="characters"
+              autoCorrect={false}
+              onChangeText={edit(setSku)}
+            />
+            <MoneyRow
+              label="Price"
+              value={price}
+              currencyCode={currencyCode}
+              precision={precision}
+              onChange={edit(setPrice)}
+            />
           </Section>
         ) : null}
 
+        {product ? <Variants product={product} canCreate={can('CreateCatalog', 'CreateProduct')} /> : null}
         <AssetsEditor value={assets} onChange={edit(setAssets)} readOnly={!canEdit} />
         <FacetValuesEditor value={facetValues} onChange={edit(setFacetValues)} readOnly={!canEdit} />
+        {product?.optionGroups.length ? (
+          <Section title="Option groups">
+            {product.optionGroups.map((g) => (
+              <ListRow
+                key={g.id}
+                title={g.name}
+                code={g.code}
+                onPress={() => router.push(`/catalog/option-groups/${g.id}`)}
+              />
+            ))}
+          </Section>
+        ) : null}
+        {product ? <Channels product={product} /> : null}
         <CustomFieldsSection
           defs={defs}
           values={cf}
@@ -224,16 +272,6 @@ function ProductForm({ product, refetch, refreshing }: { product?: Product; refe
             setDirty(true);
           }}
         />
-
-        {product ? <Variants product={product} canCreate={can('CreateCatalog', 'CreateProduct')} /> : null}
-        {product?.optionGroups.length ? (
-          <Section title="Option groups">
-            {product.optionGroups.map((g) => (
-              <ListRow key={g.id} title={g.name} code={g.code} onPress={() => router.push(`/catalog/option-groups/${g.id}`)} />
-            ))}
-          </Section>
-        ) : null}
-        {product ? <Channels product={product} /> : null}
 
         {product ? (
           <Section title="Info">
@@ -258,9 +296,14 @@ function ProductForm({ product, refetch, refreshing }: { product?: Product; refe
   );
 }
 
+/** Rows shown before "Show all" in long read-only lists. */
+const COLLAPSED_ROWS = 5;
+
 function Variants({ product, canCreate }: { product: Product; canCreate: boolean }) {
   const { precision } = useChannelInfo();
+  const [showAll, setShowAll] = useState(false);
   const { totalItems, items } = product.variantList;
+  const visible = showAll ? items : items.slice(0, COLLAPSED_ROWS);
   return (
     <Section
       title={`Variants (${totalItems})`}
@@ -270,20 +313,28 @@ function Variants({ product, canCreate }: { product: Product; canCreate: boolean
             title="Add variant"
             variant="ghost"
             size="sm"
-            onPress={() => router.push({ pathname: '/catalog/variants/[id]', params: { id: 'new', productId: product.id } })}
+            onPress={() =>
+              router.push({ pathname: '/catalog/variants/[id]', params: { id: 'new', productId: product.id } })
+            }
           />
         ) : undefined
       }
       footer={totalItems > items.length ? `Showing the first ${items.length}.` : undefined}>
       {items.length ? (
-        items.map((v) => {
+        visible.map((v) => {
           const onHand = v.stockLevels.reduce((s, l) => s + l.stockOnHand, 0);
           const allocated = v.stockLevels.reduce((s, l) => s + l.stockAllocated, 0);
           const options = v.options.map((o) => o.name).join(' · ');
           return (
             <ListRow
               key={v.id}
-              leading={<Thumbnail preview={v.featuredAsset?.preview ?? product.featuredAsset?.preview} preset="thumb" size={40} />}
+              leading={
+                <Thumbnail
+                  preview={v.featuredAsset?.preview ?? product.featuredAsset?.preview}
+                  preset="thumb"
+                  size={40}
+                />
+              }
               title={v.name}
               code={v.sku}
               subtitle={`${options ? `${options} · ` : ''}Stock ${onHand}${allocated ? ` (${allocated} allocated)` : ''}`}
@@ -296,6 +347,13 @@ function Variants({ product, canCreate }: { product: Product; canCreate: boolean
       ) : (
         <ListRow title="No variants" subtitle="A product needs at least one variant to be sold." />
       )}
+      {items.length > COLLAPSED_ROWS ? (
+        <ListRow
+          title={showAll ? 'Show less' : `Show all ${items.length}`}
+          chevron={false}
+          onPress={() => setShowAll((v) => !v)}
+        />
+      ) : null}
     </Section>
   );
 }

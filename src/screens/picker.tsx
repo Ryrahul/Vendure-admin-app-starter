@@ -7,6 +7,7 @@ import { getPickerRequest, settlePicker, type PickerItem, type PickerRequest, ty
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { ListRow } from '@/components/list-row';
+import { LIST_TUNING } from '@/components/screen-kit';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SearchField } from '@/components/search-field';
 import { groupedRowStyle } from '@/components/section';
@@ -84,6 +85,7 @@ function PickerBody({ id, request }: { id: string; request: PickerRequest }) {
         }}
       />
       <FlatList
+        {...LIST_TUNING}
         contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"

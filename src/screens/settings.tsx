@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 
 import { CurrentUserDocument } from '@/api/documents/auth';
 import { useVendureQuery } from '@/api/hooks';
@@ -36,11 +36,17 @@ export function SettingsScreen() {
     ]);
 
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing[4], gap: spacing[6] }}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ padding: spacing[4], gap: spacing[6], paddingBottom: spacing[12] }}>
       <Section title="Account">
         <ListRow
           leading={<Icon ios="person.crop.circle" android="account_circle" size={28} />}
-          title={admin ? `${admin.firstName} ${admin.lastName}`.trim() || state.identifier || 'Administrator' : state.identifier ?? '…'}
+          title={
+            admin
+              ? `${admin.firstName} ${admin.lastName}`.trim() || state.identifier || 'Administrator'
+              : (state.identifier ?? '…')
+          }
           subtitle={admin?.emailAddress ?? state.identifier}
           onPress={() => router.push('/more/profile')}
         />
@@ -79,7 +85,9 @@ export function SettingsScreen() {
               onPress={c.token === state.channelToken ? undefined : () => setChannel(c.token)}
               chevron={false}
               trailing={
-                c.token === state.channelToken ? <Icon ios="checkmark" android="check" size={18} color="foreground" /> : undefined
+                c.token === state.channelToken ? (
+                  <Icon ios="checkmark" android="check" size={18} color="foreground" />
+                ) : undefined
               }
             />
           ))}
@@ -91,7 +99,11 @@ export function SettingsScreen() {
         <ListRow title="Version" value={Constants.expoConfig?.version ?? '—'} />
       </Section>
 
-      <Button title="Sign out" variant="destructive" onPress={confirmLogout} />
+      <Section>
+        <View style={{ padding: spacing[3] }}>
+          <Button title="Sign out" variant="destructive" onPress={confirmLogout} />
+        </View>
+      </Section>
     </ScrollView>
   );
 }

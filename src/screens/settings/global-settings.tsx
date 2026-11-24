@@ -6,6 +6,7 @@ import { GlobalSettingsDetailDocument, UpdateGlobalSettingsDocument } from '@/ap
 import { useVendureMutation, useVendureQuery } from '@/api/hooks';
 import { unwrapResult, useInvalidate } from '@/api/mutations';
 import { usePermissions } from '@/api/permissions';
+import { Button } from '@/components/button';
 import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-fields-section';
 import { NumberRow, SwitchRow, ValueRow } from '@/components/form/fields';
 import { FormScroll, QueryBoundary, SaveHeader } from '@/components/screen-kit';
@@ -16,6 +17,8 @@ import { formatDate } from '@/utils/format';
 
 import { languageName, languageOptions } from './settings-a/codes';
 import { MultiPickRow, useDirty } from './settings-a/shared';
+
+const COLLAPSED_LANGUAGES = 5;
 
 export function GlobalSettingsScreen() {
   const query = useVendureQuery(GlobalSettingsDetailDocument);
@@ -52,6 +55,8 @@ function GlobalSettingsForm({
   const [trackInventory, setTrackInventory] = useState(settings.trackInventory);
   const [threshold, setThreshold] = useState<number | null>(settings.outOfStockThreshold);
   const [cf, setCf] = useState(() => customFieldValues(defs, settings.customFields));
+  const [showAllLanguages, setShowAllLanguages] = useState(false);
+  const visibleLanguages = showAllLanguages ? languages : languages.slice(0, COLLAPSED_LANGUAGES);
 
   const canEdit = can('UpdateSettings', 'UpdateGlobalSettings');
 
@@ -84,7 +89,17 @@ function GlobalSettingsForm({
       <FormScroll refreshing={refreshing} onRefresh={refetch}>
         <Section
           title="Languages"
-          footer="Languages content can be translated into. Each channel picks its own from this list; a channel’s default language can’t be removed.">
+          footer="Languages content can be translated into. Each channel picks its own from this list; a channel’s default language can’t be removed."
+          action={
+            languages.length > COLLAPSED_LANGUAGES ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                title={showAllLanguages ? 'Show less' : 'Show all'}
+                onPress={() => setShowAllLanguages((v) => !v)}
+              />
+            ) : undefined
+          }>
           <MultiPickRow
             label="Available languages"
             disabled={!canEdit}
@@ -95,12 +110,17 @@ function GlobalSettingsForm({
               setDirty(true);
             }}
           />
-          {languages.map((l) => (
+          {visibleLanguages.map((l) => (
             <ValueRow key={l} label={languageName(l)} value={l} mono />
           ))}
         </Section>
         <Section title="Stock" footer="Defaults for new product variants; variants and channels can override them.">
-          <SwitchRow label="Track inventory" value={trackInventory} disabled={!canEdit} onValueChange={edit(setTrackInventory)} />
+          <SwitchRow
+            label="Track inventory"
+            value={trackInventory}
+            disabled={!canEdit}
+            onValueChange={edit(setTrackInventory)}
+          />
           <NumberRow
             label="Out-of-stock threshold"
             hint="Variants are out of stock when saleable stock falls to this level."

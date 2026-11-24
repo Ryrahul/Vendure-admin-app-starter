@@ -1,21 +1,17 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Icon, type IconProps } from '@/components/icon';
+import { SkeletonForm, SkeletonList } from '@/components/skeleton';
 import { Text } from '@/components/text';
 import { useTheme } from '@/theme';
 
-/** First-load state. Only shown when there is no cached data yet. */
-export function LoadingState({ label = 'Loading…' }: { label?: string }) {
-  const { colors, spacing } = useTheme();
-  return (
-    <View style={[styles.center, { gap: spacing[3], padding: spacing[8] }]}>
-      <ActivityIndicator color={colors.mutedForeground} />
-      <Text variant="caption" color="mutedForeground">
-        {label}
-      </Text>
-    </View>
-  );
+/**
+ * First-load state. Only shown when there is no cached data yet. Renders a skeleton shaped
+ * like the content (a grouped list or a form) instead of a lone spinner.
+ */
+export function LoadingState({ label = 'Loading…', variant = 'list' }: { label?: string; variant?: 'list' | 'form' }) {
+  return variant === 'form' ? <SkeletonForm label={label} /> : <SkeletonList label={label} />;
 }
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {

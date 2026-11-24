@@ -78,7 +78,14 @@ export function FacetDetailScreen({ id }: { id: string }) {
   if (id === 'new') return <FacetForm />;
   return (
     <QueryBoundary query={query} pick={(d) => d.facet} noun="facet">
-      {(facet) => <FacetForm key={formKey(facet)} facet={facet} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(facet) => (
+        <FacetForm
+          key={formKey(facet)}
+          facet={facet}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
@@ -133,18 +140,26 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
     let ok = false;
     try {
       if (facet) {
-        await update.mutateAsync({ input: { id: facet.id, code: code.trim() || toCode(name), isPrivate, customFields, translations } });
+        await update.mutateAsync({
+          input: { id: facet.id, code: code.trim() || toCode(name), isPrivate, customFields, translations },
+        });
         // Each step records its progress in the drafts, so a retry after a failure neither
         // re-creates values nor re-sends ones already saved.
         let drafts = values;
         if (valueInput.create.length) {
-          const res = await createValues.mutateAsync({ input: valueInput.create.map(({ input }) => ({ ...input, facetId: facet.id })) });
+          const res = await createValues.mutateAsync({
+            input: valueInput.create.map(({ input }) => ({ ...input, facetId: facet.id })),
+          });
           drafts = markSaved(drafts, matchCreated(valueInput.create, res.createFacetValues));
           setValues(drafts);
         }
         if (valueInput.update.length) {
           await updateValues.mutateAsync({ input: valueInput.update.map((u) => u.input) });
-          drafts = markSaved(drafts, [], valueInput.update.map((u) => u.key));
+          drafts = markSaved(
+            drafts,
+            [],
+            valueInput.update.map((u) => u.key),
+          );
           setValues(drafts);
         }
       } else {
@@ -217,15 +232,6 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
             onValueChange={edit(setIsPrivate)}
           />
         </Section>
-        <CustomFieldsSection
-          defs={defs}
-          values={cf}
-          readOnly={!canEdit}
-          onChange={(k, v) => {
-            setCf((prev) => ({ ...prev, [k]: v }));
-            setDirty(true);
-          }}
-        />
         <ChildValuesEditor
           title="Values"
           noun="value"
@@ -239,6 +245,15 @@ function FacetForm({ facet, refetch, refreshing }: { facet?: Facet; refetch?: ()
             const res = await deleteValues.mutateAsync({ ids: [valueId], force: false });
             assertDeleted(res.deleteFacetValues);
             await invalidate(FacetListDocument, PickFacetValuesDocument);
+          }}
+        />
+        <CustomFieldsSection
+          defs={defs}
+          values={cf}
+          readOnly={!canEdit}
+          onChange={(k, v) => {
+            setCf((prev) => ({ ...prev, [k]: v }));
+            setDirty(true);
           }}
         />
         {facet ? (

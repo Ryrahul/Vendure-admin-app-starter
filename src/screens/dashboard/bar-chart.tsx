@@ -12,7 +12,15 @@ export interface BarDatum {
  * Dependency-free daily bar chart. A single series stays neutral ("neutral by default");
  * Vendure Blue highlights only the most recent day.
  */
-export function BarChart({ data, height = 120, formatValue }: { data: BarDatum[]; height?: number; formatValue: (v: number) => string }) {
+export function BarChart({
+  data,
+  height = 120,
+  formatValue,
+}: {
+  data: BarDatum[];
+  height?: number;
+  formatValue: (v: number) => string;
+}) {
   const { colors, radius, spacing } = useTheme();
   const max = Math.max(1, ...data.map((d) => d.value));
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -24,7 +32,7 @@ export function BarChart({ data, height = 120, formatValue }: { data: BarDatum[]
       <View
         accessible
         accessibilityLabel={`Daily chart, total ${formatValue(total)}, peak ${formatValue(max)}`}
-        style={[styles.bars, { height, gap: 2 }]}>
+        style={[styles.bars, { height, gap: spacing[0.5] }]}>
         {data.map((d, i) => (
           <View
             key={d.label + i}

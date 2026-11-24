@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { memo } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { useTheme } from '@/theme';
+import { spacing as spacingTokens } from '@/theme/tokens';
 
 export interface ListRowProps {
   title: string;
@@ -18,7 +20,16 @@ export interface ListRowProps {
   chevron?: boolean;
 }
 
-export function ListRow({ title, subtitle, code, leading, trailing, value, onPress, chevron }: ListRowProps) {
+export const ListRow = memo(function ListRow({
+  title,
+  subtitle,
+  code,
+  leading,
+  trailing,
+  value,
+  onPress,
+  chevron,
+}: ListRowProps) {
   const { colors, spacing } = useTheme();
   const content = (
     <>
@@ -48,7 +59,7 @@ export function ListRow({ title, subtitle, code, leading, trailing, value, onPre
           {trailing}
         </View>
       ) : null}
-      {chevron ?? !!onPress ? <Icon ios="chevron.right" android="chevron_right" size={16} /> : null}
+      {(chevron ?? !!onPress) ? <Icon ios="chevron.right" android="chevron_right" size={16} /> : null}
     </>
   );
   const rowStyle = [styles.row, { paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[3] }];
@@ -59,14 +70,15 @@ export function ListRow({ title, subtitle, code, leading, trailing, value, onPre
       accessibilityRole="button"
       onPress={onPress}
       android_ripple={{ color: colors.accent }}
-      style={({ pressed }) => [rowStyle, pressed && { backgroundColor: colors.accent }]}>
+      unstable_pressDelay={40}
+      style={({ pressed }) => [rowStyle, pressed && Platform.OS === 'ios' && { backgroundColor: colors.accent }]}>
       {content}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 52 },
-  body: { flex: 1, gap: 2 },
-  trailing: { alignItems: 'flex-end', gap: 4, maxWidth: '45%' },
+  body: { flex: 1, gap: spacingTokens[0.5] },
+  trailing: { alignItems: 'flex-end', gap: spacingTokens[1], maxWidth: '45%' },
 });

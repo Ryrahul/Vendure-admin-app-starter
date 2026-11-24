@@ -2,7 +2,15 @@
 import { Image } from 'expo-image';
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, TextInput, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { customFieldsInput, customFieldValues } from '@/api/custom-fields';
 import {
@@ -23,7 +31,14 @@ import { CustomFieldsSection, useCustomFields } from '@/components/form/custom-f
 import { TextRow, ValueRow } from '@/components/form/fields';
 import { Icon } from '@/components/icon';
 import { InlineError } from '@/components/inline-error';
-import { DeleteSection, FormScroll, HeaderIconButton, QueryBoundary, SaveHeader } from '@/components/screen-kit';
+import {
+  DeleteSection,
+  FormScroll,
+  HeaderIconButton,
+  QueryBoundary,
+  SaveHeader,
+  LIST_TUNING,
+} from '@/components/screen-kit';
 import { EmptyState, ErrorState, LoadingState } from '@/components/screen-state';
 import { SearchField } from '@/components/search-field';
 import { Section } from '@/components/section';
@@ -52,7 +67,12 @@ export function AssetListScreen() {
   const list = useVendureInfiniteList(
     AssetListDocument,
     (skip, take) => ({
-      options: { skip, take, sort: { createdAt: 'DESC' as const }, ...(term ? { filter: { name: { contains: term } } } : {}) },
+      options: {
+        skip,
+        take,
+        sort: { createdAt: 'DESC' as const },
+        ...(term ? { filter: { name: { contains: term } } } : {}),
+      },
     }),
     (r) => r.assets,
     PAGE_SIZE * 2,
@@ -84,6 +104,7 @@ export function AssetListScreen() {
         }}
       />
       <FlatList
+        {...LIST_TUNING}
         contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="on-drag"
         data={list.items}
@@ -119,7 +140,10 @@ export function AssetListScreen() {
           if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
         }}
         refreshControl={
-          <RefreshControl refreshing={list.isRefetching && !list.isFetchingNextPage} onRefresh={() => void list.refetch()} />
+          <RefreshControl
+            refreshing={list.isRefetching && !list.isFetchingNextPage}
+            onRefresh={() => void list.refetch()}
+          />
         }
         ListEmptyComponent={
           list.isLoading || (list.isFetching && !list.data) ? (
@@ -139,7 +163,9 @@ export function AssetListScreen() {
           )
         }
         ListFooterComponent={
-          list.isFetchingNextPage ? <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} /> : undefined
+          list.isFetchingNextPage ? (
+            <ActivityIndicator style={{ padding: spacing[4] }} color={colors.mutedForeground} />
+          ) : undefined
         }
       />
     </>
@@ -152,7 +178,14 @@ export function AssetDetailScreen({ id }: { id: string }) {
   const query = useVendureQuery(AssetDetailDocument, { id });
   return (
     <QueryBoundary query={query} pick={(d) => d.asset} noun="asset">
-      {(asset) => <AssetForm key={asset.updatedAt} asset={asset} refetch={() => void query.refetch()} refreshing={query.isRefetching} />}
+      {(asset) => (
+        <AssetForm
+          key={asset.updatedAt}
+          asset={asset}
+          refetch={() => void query.refetch()}
+          refreshing={query.isRefetching}
+        />
+      )}
     </QueryBoundary>
   );
 }
@@ -166,7 +199,7 @@ function formatBytes(n: number) {
 function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () => void; refreshing: boolean }) {
   const { can } = usePermissions();
   const { state } = useSession();
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing, radius, text } = useTheme();
   const { width } = useWindowDimensions();
   const defs = useCustomFields('Asset');
   const invalidate = useInvalidate();
@@ -182,6 +215,8 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
   const [dirty, setDirty] = useState(false);
 
   const canEdit = can('UpdateCatalog', 'UpdateAsset');
+  // Same input font as <TextRow> (family carries the weight).
+  const { fontWeight: _w, ...bodyFont } = text.body;
   const previewSize = Math.min(width - spacing[4] * 2, 480);
   const uri = assetUrl(asset.preview, state.apiUrl, 'large');
 
@@ -223,7 +258,10 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
               source={{ uri }}
               style={{
                 width: previewSize,
-                height: asset.width && asset.height ? Math.min(previewSize * (asset.height / asset.width), previewSize * 1.5) : previewSize,
+                height:
+                  asset.width && asset.height
+                    ? Math.min(previewSize * (asset.height / asset.width), previewSize * 1.5)
+                    : previewSize,
                 borderRadius: radius.xl,
                 backgroundColor: colors.neutralSubtle,
               }}
@@ -246,6 +284,12 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
               setDirty(true);
             }}
           />
+          <ValueRow label="Type" value={asset.mimeType} />
+          <ValueRow
+            label="Dimensions"
+            value={asset.width && asset.height ? `${asset.width} × ${asset.height}` : undefined}
+          />
+          <ValueRow label="Size" value={formatBytes(asset.fileSize)} />
         </Section>
 
         <Section
@@ -312,7 +356,14 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
             </Text>
           )}
           {canEdit ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], paddingVertical: spacing[2] }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing[2],
+                paddingHorizontal: spacing[4],
+                paddingVertical: spacing[2],
+              }}>
               <TextInput
                 value={newTag}
                 onChangeText={setNewTag}
@@ -326,7 +377,7 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
                   addTag(newTag);
                   setNewTag('');
                 }}
-                style={{ flex: 1, color: colors.foreground, paddingVertical: spacing[1] }}
+                style={{ ...bodyFont, flex: 1, color: colors.foreground, paddingVertical: spacing[1] }}
               />
               <Button
                 title="Add"
@@ -352,13 +403,11 @@ function AssetForm({ asset, refetch, refreshing }: { asset: Asset; refetch: () =
           }}
         />
 
-        <Section title="File">
-          <ValueRow label="Type" value={asset.mimeType} />
-          <ValueRow label="Dimensions" value={asset.width && asset.height ? `${asset.width} × ${asset.height}` : undefined} />
-          <ValueRow label="Size" value={formatBytes(asset.fileSize)} />
-          <ValueRow label="Source" value={asset.source} mono />
+        <Section title="Info">
           <ValueRow label="ID" value={asset.id} mono />
+          <ValueRow label="Source" value={asset.source} mono />
           <ValueRow label="Created" value={formatDate(asset.createdAt)} />
+          <ValueRow label="Updated" value={formatDate(asset.updatedAt)} />
         </Section>
 
         <DeleteSection
