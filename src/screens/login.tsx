@@ -70,7 +70,8 @@ export function LoginScreen() {
               textContentType="URL"
               returnKeyType="next"
               onSubmitEditing={() => usernameRef.current?.focus()}
-              hint="Admin API URL, e.g. https://shop.example.com/admin-api"
+              placeholder="https://shop.example.com/admin-api"
+              hint="Your Vendure Admin API URL"
             />
             <TextField
               ref={usernameRef}

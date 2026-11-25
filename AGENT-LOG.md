@@ -23,3 +23,4 @@
 [2026-11-23 23:10] independent review: 20 findings, fixed by 2 fix agents + orchestrator (ad6be02); pushed feat/full-admin; PR #20 (base feat/starter-app)
 [2026-11-23 23:25] APK 2.0.0 (2) 105314130B sha256 c576ef4821c8df07179ec519783d320355e99d48db175398746f98b58083c8e1, no creds in bundle; Firebase release 2.0.0 (2) --groups testers
 [2026-11-24 01:12] v2 relay handoff rs_J3Z649Y840D8 (continues rs_YGJ16ZK3Q9KQ), linked PR #20
+[2026-11-24 01:58] 2.0.1 (3): empty default server URL; PR #21 (base feat/full-admin); assembleRelease 10m08s; sha256 2d9630ad…f4ee6e; Firebase 2.0.1 (3) -> testers; dev-server kept running in tmux vendure:dev-server (Rahul)
